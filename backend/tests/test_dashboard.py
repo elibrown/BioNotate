@@ -56,33 +56,28 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(combined_alerts(member(value=110, score=0.4), rules), [])
         self.assertEqual(combined_alerts(member(value=110), rules), [])   # no score at all
 
-    def test_demo_api_joins_data(self):
-        with patch.dict(os.environ, {"ASTROHEALTH_DASHBOARD": "demo"}):
-            response = TestClient(app).get("/api/dashboard")
-        self.assertEqual(response.status_code, 200)
-        snapshot = response.json()
-        self.assertTrue(snapshot["crew"])
-        for crew in snapshot["crew"]:
-            self.assertTrue(crew["metrics"])
-            self.assertTrue(crew["predictions"])
-        crew_ids = {crew["id"] for crew in snapshot["crew"]}
-        self.assertTrue(snapshot["alerts"])
-        self.assertTrue(all(alert["crew_id"] in crew_ids for alert in snapshot["alerts"]))
-
-    def test_sample_preview_has_data_without_writing_database(self):
+    def test_dashboard_uses_persisted_samples_without_a_preview_mode(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from app import db
+        from app.seed_samples import seed_samples
 
         with TemporaryDirectory() as directory, patch.dict(os.environ, {
-            'ASTROHEALTH_DB': str(Path(directory) / 'preview.db'),
-            'ASTROHEALTH_DASHBOARD': 'live',
+            'ASTROHEALTH_DB': str(Path(directory) / 'samples.db'),
         }):
+            self.assertGreater(seed_samples(), 0)
+            self.assertEqual(seed_samples(), 0)
             client = TestClient(app)
-            sample = client.get('/api/dashboard?demo=true')
-            self.assertEqual(sample.status_code, 200)
-            self.assertEqual(sample.json()['mode'], 'demo')
-            self.assertTrue(all(member['predictions'] for member in sample.json()['crew']))
-            self.assertTrue(all(metric['value'] is not None for member in sample.json()['crew'] for metric in member['metrics']))
-            self.assertEqual(db.list_measurements(), [])
-            self.assertEqual(client.get('/api/dashboard').json()['mode'], 'live')
+            sample = client.get('/api/dashboard').json()
+            self.assertEqual(sample['mode'], 'live')
+            self.assertEqual(sorted(member['status'] for member in sample['crew']),
+                             ['alert', 'alert', 'normal', 'normal'])
+            self.assertTrue(all(member['simulated'] for member in sample['crew']))
+            db.add_measurement('A-01', 'temperature_c', 37.2, '°C')
+            db.add_measurement('A-01', 'hr_bpm', 72, 'bpm', source='cardioresp')
+            real = next(m for m in client.get('/api/dashboard').json()['crew'] if m['id']=='A-01')
+            self.assertFalse(real['simulated'])
+            self.assertEqual(real['metrics'][0]['value'], 72)
+            temperature = next(m for m in real['manual_measurements'] if m['metric']=='temperature_c')
+            self.assertEqual(temperature['value'], 37.2)
+            self.assertNotIn('id="data-source"', client.get('/').text)

@@ -8,7 +8,7 @@ Astronaut health monitoring and early risk detection platform for NASA Space App
 
 ![Dashboard read path and planned database integration](docs/diagrams/dashboard-design.svg)
 
-The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. By default the repository reads the SQLite database (`DatabaseCrewRepository`): the `astronauts` roster (filled from `data/astronauts.json` on first run) and the readings saved from uploaded videos. Set `ASTROHEALTH_DASHBOARD=demo` to show the JSON demo files instead (`DemoCrewRepository`).
+The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. By default the repository reads the SQLite database (`DatabaseCrewRepository`): the `astronauts` roster (filled from `data/astronauts.json` on first run) and the readings saved from uploaded videos. There is one dashboard and one SQLite data source.
 
 ### Video / data upload
 
@@ -69,7 +69,7 @@ classDiagram
         <<interface>>
         list_crew()
     }
-    CrewRepository <|.. DemoCrewRepository
+    CrewRepository <|.. DatabaseCrewRepository
     CrewRepository --> CrewMember : returns
     CrewMember "1" *-- "0..*" Metric
     CrewMember "1" *-- "0..*" Prediction
@@ -197,3 +197,5 @@ Use **Manual measurements** in the sidebar (`/measurements`) to record one metri
 `GET /api/measurement-catalog` lists supported fields/units; `POST /api/manual-measurements` validates and saves one metric/value. No device adapters or CSV imports are included.
 
 Docker stores SQLite at `/app/storage/astrohealth.db` in the persistent `database` volume. Container rebuilds/recreation retain it; `docker compose down -v` deletes it. Venv uses its own `backend/astrohealth.db` file.
+
+Populate persistent synthetic examples with `docker compose exec app python -m app.seed_samples` (venv: `python -m app.seed_samples` from `backend/`). The command is repeatable and preserves real records. Synthetic readings stay labeled, are exempt from live freshness expiry, and yield to real model/manual readings. There is no sample-preview dashboard or source selector.
