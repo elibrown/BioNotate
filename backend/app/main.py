@@ -3,7 +3,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
-from app.routers import video
+from app import db
+from app.routers import predictions, video
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -14,6 +15,10 @@ app = FastAPI(
 )
 
 app.include_router(video.router)
+app.include_router(predictions.router)
+
+# Create the predictions table (backend/astrohealth.db) if it isn't there yet.
+db.init_db()
 
 
 @app.get("/api/health")

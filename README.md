@@ -16,7 +16,7 @@ Browser → POST /api/video → save file → video processor → run_model() �
 - `POST /api/video` accepts multipart `file` and optional `astronaut_id`. It checks the filename extension (`.mp4`, `.mov`, `.avi`, `.mkv`, `.webm`), saves the file under a generated name, and calls the placeholder model synchronously.
 - The response includes `astronaut_id`, `filename`, `saved_as`, and `result`. The placeholder returns a fixed `normal` status, zero confidence, and video size; this is a dummy result, not a health assessment.
 
-There is no frame extraction, face processing, separate `/predict` endpoint, or prediction database yet. Upload validation currently checks extensions only; content validation, size limits, retention, and retry handling remain to be implemented.
+There is no frame extraction, face processing, or separate `/predict` endpoint yet. Predictions are saved to SQLite (see below). Upload validation currently checks extensions only; content validation, size limits, retention, and retry handling remain to be implemented.
 
 ## Processing skeleton: factory and strategies
 
@@ -86,6 +86,36 @@ curl -F "file=@clip.mp4" -F "astronaut_id=A-07" http://127.0.0.1:8000/api/video
 The video is saved in `backend/uploads/` (not committed to git) and the
 model result comes straight back as JSON. The model is a placeholder for now:
 replace `run_model()` in `backend/app/models/video_model.py` with the real one.
+
+### Saved predictions and alerts
+
+Every `POST /api/video` result is stored in a SQLite file,
+`backend/astrohealth.db` (created on startup, not committed to git; set
+`ASTROHEALTH_DB` to use another path). The full model output is kept as JSON,
+so the real model can return any shape. All database code is in
+`backend/app/db.py`.
+
+A prediction is flagged as an alert if the model returns `"alert": true`, or
+a `status` other than `"normal"`. Change `is_alert()` in `backend/app/db.py`
+once the real output is known.
+
+| Endpoint | What it returns |
+| --- | --- |
+| `GET /api/predictions?astronaut_id=A-07&limit=50` | History, newest first (omit `astronaut_id` for everyone) |
+| `GET /api/predictions/{id}` | One prediction |
+| `GET /api/alerts` | Unacknowledged alerts, newest first (`?astronaut_id=`, `?include_acknowledged=true`) |
+| `POST /api/alerts/{id}/ack` | Marks an alert as seen |
+
+Each item looks like:
+
+```json
+{"id": 2, "astronaut_id": "A-07", "created_at": "2026-11-14T11:44:39+00:00",
+ "video_file": "20261114-134439_a25806a9.mp4", "status": "fatigue",
+ "is_alert": true, "alert_acknowledged": false,
+ "result": {"status": "fatigue", "confidence": 0.9}}
+```
+
+`POST /api/video` now also returns `prediction_id`, `created_at` and `is_alert`.
 
 
 ## Implementation plan

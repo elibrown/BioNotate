@@ -2,7 +2,8 @@
 Video upload route:  POST /api/video
 
 Receives a video (plus an optional astronaut_id), saves it in
-backend/uploads/ under a unique name, runs the model and returns the result.
+backend/uploads/ under a unique name, runs the model, stores the prediction
+in the database (app/db.py) and returns the result.
 """
 
 import shutil
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from app import db
 from app.models.video_model import run_model
 from app.processing import ProcessorFactory
 
@@ -49,7 +51,13 @@ def upload_video(
     processed_video = processor.process(saved_path)
     result = run_model(processed_video)
 
+    # Keep a record of every prediction (see app/db.py).
+    saved = db.save_prediction(result, astronaut_id=astronaut_id, video_file=saved_name)
+
     return {
+        "prediction_id": saved["id"],
+        "created_at": saved["created_at"],
+        "is_alert": saved["is_alert"],
         "astronaut_id": astronaut_id,
         "filename": file.filename,
         "saved_as": saved_name,
