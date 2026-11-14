@@ -3,76 +3,35 @@ Voice pipeline: five clips -> POST /api/audio -> voicebiomarker model ->
 database -> dashboard prediction -> alerts from data/rules.json, including
 the "combined" rule that looks at the vocal biomarker AND heart rate.
 
-Most tests fake the model's output (fast). test_real_model_on_synthetic_voice
-runs the real voicebiomarker model on synthetic "voice" (a buzz shaped like
-vowels), so it checks the plumbing, not the medicine.
+Most tests fake the model's output (fast). The test_real_model_* tests run
+the real voicebiomarker model on the sample recordings in data/sample/voice/
+(synthetic "voice": a buzz shaped like vowels), so they check the plumbing,
+not the medicine.
 
 Run from backend/:  python -m pytest -q
 """
 
-import io
 import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-import numpy as np
-import soundfile as sf
 from fastapi.testclient import TestClient
-from scipy.signal import lfilter
 
 from app.extractors import extract_measurements
 from app.main import app
 from app.models.voice_model import TASKS
 from app.routers import audio, video
 
-SR = 16000
-RNG = np.random.default_rng(0)
+# Synthetic recordings (robotic "voice", made by make_clips.py in the same
+# folder). Six days of the same fake person; the real model's score rises
+# every day (about 0.75 -> 3.14).
+SAMPLE_DIR = Path(__file__).resolve().parents[2] / "data" / "sample" / "voice"
 
 
-# ---- synthetic voice (same idea as the voicebiomarker package's own tests)
-
-def vowel(seconds, f0=120.0, formants=(700, 1200, 2500)):
-    """A pulse train (the vocal folds) through three resonances (the mouth)."""
-    src = np.zeros(int(seconds * SR))
-    t = 0.0
-    while t < seconds:
-        src[int(t * SR)] = 1.0
-        t += (1 / f0) * (1 + 0.01 * RNG.standard_normal())
-    y = src
-    for f in formants:
-        r = np.exp(-np.pi * 80 / SR)
-        y = lfilter([1 - r], [1, -2 * r * np.cos(2 * np.pi * f / SR), r * r], y)
-    return y / (np.max(np.abs(y)) + 1e-9) * 0.3
-
-
-def counting(seconds, fast=False):
-    """Short voiced bursts with pauses, like counting out loud."""
-    on, off = (0.25, 0.1) if fast else (0.4, 0.25)
-    parts, total = [], 0.0
-    while total < seconds:
-        parts += [vowel(on, f0=110 + 30 * RNG.random(), formants=(500 + 400 * RNG.random(), 1500, 2500)),
-                  np.zeros(int(off * SR))]
-        total += on + off
-    return np.concatenate(parts)
-
-
-def wav(y):
-    y = (y + 1e-4 * RNG.standard_normal(y.size)).astype(np.float32)
-    buf = io.BytesIO()
-    sf.write(buf, y, SR, format="WAV", subtype="PCM_16")
-    return buf.getvalue()
-
-
-def synthetic_recording():
-    return {
-        "counting_normal": wav(counting(14)),
-        "counting_fast": wav(counting(10, fast=True)),
-        "vowel_a": wav(vowel(6, formants=(750, 1200, 2500))),
-        "vowel_e": wav(vowel(6, formants=(450, 2000, 2700))),
-        "vowel_o": wav(vowel(6, formants=(500, 900, 2400))),
-    }
+def sample_day(n):
+    return {task: (SAMPLE_DIR / f"day{n}" / f"{task}.wav").read_bytes() for task in TASKS}
 
 
 # ---- fake model outputs
@@ -221,18 +180,25 @@ class VoicePipelineTests(unittest.TestCase):
         snapshot, _ = self.dashboard()
         self.assertEqual(snapshot["alerts"], [])          # 2 checks each
 
-    def test_real_model_on_synthetic_voice(self):
-        r = self.post_clips("A-03", clips=synthetic_recording())
+    def test_real_model_on_sample_recording(self):
+        r = self.post_clips("A-03", clips=sample_day(1))
         self.assertEqual(r.status_code, 200, r.text)
         result = r.json()["result"]
         self.assertEqual(result["model"], "voicebiomarker")
-        self.assertIn(result["status"], ("ok", "rejected"))
+        self.assertEqual(result["status"], "ok")
+        self.assertIsNotNone(result["vocal_biomarker"])
         self.assertTrue(result["model_version"])
-        if result["status"] == "ok":
-            self.assertIsNotNone(result["vocal_biomarker"])
-        print("\nreal model on synthetic voice:", result["status"], result["reason"],
-              result["vocal_biomarker"], result["log_message"])
 
+    def test_real_model_sample_days_rise_and_alert(self):
+        scores = []
+        for day in (3, 4, 5, 6):   # 4 checks
+            r = self.post_clips("A-03", clips=sample_day(day))
+            self.assertEqual(r.status_code, 200, r.text)
+            scores.append(r.json()["result"]["vocal_biomarker"])
+        self.assertEqual(scores, sorted(scores))          # each day higher
+        snapshot, crew = self.dashboard()
+        self.assertEqual(crew["A-03"]["status"], "alert")
+        self.assertEqual([a["metric"] for a in snapshot["alerts"]], ["vocal_biomarker_rising"])
 
 if __name__ == "__main__":
     unittest.main()
