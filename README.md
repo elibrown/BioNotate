@@ -87,35 +87,53 @@ The video is saved in `backend/uploads/` (not committed to git) and the
 model result comes straight back as JSON. The model is a placeholder for now:
 replace `run_model()` in `backend/app/models/video_model.py` with the real one.
 
-### Saved predictions and alerts
+### Saved predictions, measurements and alerts
 
-Every `POST /api/video` result is stored in a SQLite file,
-`backend/astrohealth.db` (created on startup, not committed to git; set
-`ASTROHEALTH_DB` to use another path). The full model output is kept as JSON,
-so the real model can return any shape. All database code is in
-`backend/app/db.py`.
+Everything is stored in one SQLite file, `backend/astrohealth.db` (created on
+first use, not committed to git; set `ASTROHEALTH_DB` to use another path).
+All database code is in `backend/app/db.py`. There are three tables:
 
-A prediction is flagged as an alert if the model returns `"alert": true`, or
-a `status` other than `"normal"`. Change `is_alert()` in `backend/app/db.py`
-once the real output is known.
+- **predictions**: one row per model run (e.g. one uploaded video). It keeps
+  the model's full output as JSON, its `model`, `status`, and whether it is an
+  alert. This is what the UI shows as status and alerts.
+- **measurements**: the health data we present and analyse for trends. Each row
+  is one value: astronaut, biomarker, metric, value, unit, time. A row either
+  came from a model run (`prediction_id` set) or was entered by hand, e.g. a lab
+  result (`source = "manual"`).
+- **biomarkers**: the kinds of data we track, pre-filled with BM01 to BM12.
+  Adding a new kind of data is adding a row; the tables don't change.
+
+After each model run, `backend/app/extractors.py` picks the values to keep out
+of the model output. Today the `rppg` model's `hr_bpm` is stored under
+`BM06_HR_HRV_RMSSD`. A new model needs one small function there.
+
+A prediction is an alert if the model returns `"alert": true`, or a `status`
+other than `"ok"`/`"normal"`. Change `is_alert()` in `backend/app/db.py` as we
+learn more.
 
 | Endpoint | What it returns |
 | --- | --- |
-| `GET /api/predictions?astronaut_id=A-07&limit=50` | History, newest first (omit `astronaut_id` for everyone) |
-| `GET /api/predictions/{id}` | One prediction |
+| `GET /api/predictions?astronaut_id=A-07&limit=50` | Model runs, newest first (omit `astronaut_id` for everyone) |
+| `GET /api/predictions/{id}` | One model run, with its full output |
 | `GET /api/alerts` | Unacknowledged alerts, newest first (`?astronaut_id=`, `?include_acknowledged=true`) |
 | `POST /api/alerts/{id}/ack` | Marks an alert as seen |
+| `GET /api/measurements?astronaut_id=A-07&biomarker=BM06_HR_HRV_RMSSD&metric=hr_bpm&since=2026-11-01` | Values oldest first, ready for a trend chart (all filters optional, plus `until`, `limit`) |
+| `POST /api/measurements` | Add one value by hand (JSON: `astronaut_id`, `biomarker`, `metric`, `value`, `unit`, optional `measured_at`) |
+| `GET /api/biomarkers` | The biomarker types |
+| `POST /api/biomarkers` | Add a type (JSON: `code`, `name`, optional `description`) |
 
-Each item looks like:
+A measurement looks like:
 
 ```json
-{"id": 2, "astronaut_id": "A-07", "created_at": "2026-11-14T11:44:39+00:00",
- "video_file": "20261114-134439_a25806a9.mp4", "status": "fatigue",
- "is_alert": true, "alert_acknowledged": false,
- "result": {"status": "fatigue", "confidence": 0.9}}
+{"id": 1, "astronaut_id": "A-07", "biomarker": "BM06_HR_HRV_RMSSD",
+ "metric": "hr_bpm", "value": 62.2, "unit": "bpm",
+ "measured_at": "2026-11-14T12:19:31+00:00", "prediction_id": 1, "source": "rppg"}
 ```
 
-`POST /api/video` now also returns `prediction_id`, `created_at` and `is_alert`.
+`POST /api/video` now also returns `prediction_id`, `created_at`, `is_alert`
+and the `measurements` it saved.
+
+Tests: from `backend/`, run `python -m unittest discover tests`.
 
 
 ## Implementation plan
