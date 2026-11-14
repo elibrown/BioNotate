@@ -56,46 +56,15 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(combined_alerts(member(value=110, score=0.4), rules), [])
         self.assertEqual(combined_alerts(member(value=110), rules), [])   # no score at all
 
-    def test_dashboard_uses_persisted_samples_without_a_preview_mode(self):
-        from pathlib import Path
-        from tempfile import TemporaryDirectory
-        from app import db
-        from app.db_snapshot import initialize_database
-
-        with TemporaryDirectory() as directory, patch.dict(os.environ, {
-            'ASTROHEALTH_DB': str(Path(directory) / 'samples.db'),
-        }):
-            self.assertTrue(initialize_database())
-            self.assertFalse(initialize_database())
-            client = TestClient(app)
-            sample = client.get('/api/dashboard').json()
-            self.assertEqual(sample['mode'], 'live')
-            self.assertEqual(sorted(member['status'] for member in sample['crew']),
-                             ['alert', 'alert', 'normal', 'normal'])
-            self.assertTrue(all(member['simulated'] for member in sample['crew']))
-            db.add_measurement('A-01', 'temperature_c', 37.2, '°C')
-            db.add_measurement('A-01', 'hr_bpm', 72, 'bpm', source='cardioresp')
-            real = next(m for m in client.get('/api/dashboard').json()['crew'] if m['id']=='A-01')
-            self.assertFalse(real['simulated'])
-            self.assertEqual(real['metrics'][0]['value'], 72)
-            temperature = next(m for m in real['manual_measurements'] if m['metric']=='temperature_c')
-            self.assertEqual(temperature['value'], 37.2)
-            self.assertNotIn('id="data-source"', client.get('/').text)
-
-    def test_shared_snapshot_preserves_local_data(self):
-        from pathlib import Path
-        from tempfile import TemporaryDirectory
-        import sqlite3
-        from app.db_snapshot import initialize_database
-
-        with TemporaryDirectory() as directory:
-            target = Path(directory) / 'runtime.sqlite3'
-            with patch.dict(os.environ, {'ASTROHEALTH_DB': str(target)}):
-                assert initialize_database()
-                with sqlite3.connect(target) as connection:
-                    assert connection.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
-                    assert connection.execute('SELECT COUNT(*) FROM measurements').fetchone()[0] > 0
-                    connection.execute("INSERT INTO astronauts(id,name) VALUES ('LOCAL', 'Local Crew')")
-                assert not initialize_database()
-                with sqlite3.connect(target) as connection:
-                    assert connection.execute("SELECT name FROM astronauts WHERE id='LOCAL'").fetchone()[0] == 'Local Crew'
+    def test_demo_api_joins_data(self):
+        with patch.dict(os.environ, {"ASTROHEALTH_DASHBOARD": "demo"}):
+            response = TestClient(app).get("/api/dashboard")
+        self.assertEqual(response.status_code, 200)
+        snapshot = response.json()
+        self.assertTrue(snapshot["crew"])
+        for crew in snapshot["crew"]:
+            self.assertTrue(crew["metrics"])
+            self.assertTrue(crew["predictions"])
+        crew_ids = {crew["id"] for crew in snapshot["crew"]}
+        self.assertTrue(snapshot["alerts"])
+        self.assertTrue(all(alert["crew_id"] in crew_ids for alert in snapshot["alerts"]))

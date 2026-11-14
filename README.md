@@ -8,7 +8,7 @@ Astronaut health monitoring and early risk detection platform for NASA Space App
 
 ![Dashboard read path and planned database integration](docs/diagrams/dashboard-design.svg)
 
-The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. By default the repository reads the SQLite database (`DatabaseCrewRepository`): the `astronauts` roster (filled from `data/astronauts.json` on first run) and the readings saved from uploaded videos. There is one dashboard and one SQLite data source.
+The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. By default the repository reads the SQLite database (`DatabaseCrewRepository`): the `astronauts` roster (filled from `data/astronauts.json` on first run) and the readings saved from uploaded videos. Set `ASTROHEALTH_DASHBOARD=demo` to show the JSON demo files instead (`DemoCrewRepository`).
 
 ### Video / data upload
 
@@ -46,7 +46,6 @@ python -m venv .venv
 # Linux/macOS: source .venv/bin/activate
 # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m app.db_snapshot init
 uvicorn app.main:app --reload
 ```
 
@@ -70,7 +69,7 @@ classDiagram
         <<interface>>
         list_crew()
     }
-    CrewRepository <|.. DatabaseCrewRepository
+    CrewRepository <|.. DemoCrewRepository
     CrewRepository --> CrewMember : returns
     CrewMember "1" *-- "0..*" Metric
     CrewMember "1" *-- "0..*" Prediction
@@ -193,22 +192,4 @@ Python package markers and empty-directory placeholders are omitted from the tre
 
 ## Manual measurements
 
-Use **Manual measurements** in the sidebar (`/measurements`) to record one metric at a time: systolic or diastolic blood pressure (mmHg), glucose (mg/dL), or temperature (°C). Choose an astronaut and collection time. Each value is saved as one SQLite measurement row with `source=manual` and shown in member details. Manual values do not change health status or trigger alerts yet.
-
-`GET /api/measurement-catalog` lists supported fields/units; `POST /api/manual-measurements` validates and saves one metric/value. No device adapters or CSV imports are included.
-
-Docker stores SQLite at `/app/storage/astrohealth.db` in the persistent `database` volume. Container rebuilds/recreation retain it; `docker compose down -v` deletes it. Venv uses its own `backend/astrohealth.db` file.
-
-
-## Shared database snapshot
-
-`data/shared/astrohealth.sqlite3` is the tracked team baseline. Docker initializes a fresh volume automatically from this snapshot. Initialize a fresh venv database from `backend/` with `python -m app.db_snapshot init`, or use `docker compose exec app python -m app.db_snapshot init`. Existing runtime data is never overwritten. The UI reads SQLite; JSON files are seed/configuration inputs.
-
-To share updated data, export then commit the snapshot (venv: `python -m app.db_snapshot export`). Docker dev mounts data read-only, so use:
-
-```bash
-docker compose exec app python -m app.db_snapshot export --output /tmp/team.sqlite3
-docker compose cp app:/tmp/team.sqlite3 data/shared/astrohealth.sqlite3
-```
-
-Pulling updates the baseline, not an existing runtime DB. This shares a dataset through Git, not live edits. Uploaded media files are separate.
+Use **Manual measurements** in the sidebar to save one systolic/diastolic pressure, glucose, or temperature reading at a time. Saved values appear in member details; no manual alert rules are applied.

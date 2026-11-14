@@ -36,6 +36,3 @@ Thumbs.db
 # Uploaded videos (keep the folder, not the files)
 backend/uploads/*
 !backend/uploads/.gitkeep
-
-# Team baseline snapshot; active runtime databases remain ignored.
-!data/shared/astrohealth.sqlite3

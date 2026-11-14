@@ -7,10 +7,8 @@ services:
       - "${APP_PORT:-8000}:8000"
     volumes:
       - uploads:/app/backend/uploads
-      - database:/app/storage
     restart: unless-stopped
     init: true
 
 volumes:
   uploads:
-  database:

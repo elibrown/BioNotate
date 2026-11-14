@@ -20,6 +20,3 @@ data/*
 !data/metrics.json
 !data/predictions.json
 !data/rules.json
-
-!data/shared/
-!data/shared/astrohealth.sqlite3
