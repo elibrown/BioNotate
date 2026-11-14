@@ -1,17 +1,31 @@
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import seed
 from app.routers import audio, dashboard, measurements, predictions, video
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # On startup: fill an empty database from the team's shared seed file.
+    added = seed.load_seed_if_empty()
+    if added:
+        logging.getLogger("uvicorn.error").info("Loaded shared seed data: %s", added)
+    yield
+
 
 app = FastAPI(
     title="AstroHealth API",
     description="Astronaut health monitoring and early risk detection",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(video.router)
