@@ -15,6 +15,8 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from app.measurement_catalog import FIELD_BY_KEY
+
 
 class Metric(BaseModel):
     key: str
@@ -43,6 +45,7 @@ class CrewMember(BaseModel):
     observed_at: datetime
     metrics: list[Metric]
     predictions: list[Prediction] = []
+    manual_measurements: list[dict] = []
 
 
 class CrewRepository(Protocol):
@@ -141,6 +144,15 @@ class DatabaseCrewRepository:
                 metrics.append(Metric(key=key, **rule,
                                       value=rows[-1]["value"] if rows else None,
                                       history=[r["value"] for r in rows]))
+            manual_rows = db.list_measurements(astronaut_id=astronaut["id"], source="manual", limit=10000)
+            latest_manual = {}
+            for row in manual_rows:
+                definition = FIELD_BY_KEY.get(row["metric"], {})
+                latest_manual[row["metric"]] = {
+                    **row,
+                    "label": definition.get("label", row["metric"]),
+                    "group_id": definition.get("group_id"),
+                }
             members.append(CrewMember(
                 id=astronaut["id"],
                 name=astronaut["name"],
@@ -148,6 +160,7 @@ class DatabaseCrewRepository:
                 # Oldest of the latest readings; no data at all = very old (stale).
                 observed_at=min(observed) if observed else datetime.fromtimestamp(0, timezone.utc),
                 metrics=metrics,
+                manual_measurements=list(latest_manual.values()),
                 # Risk-score predictions (rules.json "predictions") need a model
                 # that outputs scores; cardioresp doesn't, so none yet.
                 predictions=[],

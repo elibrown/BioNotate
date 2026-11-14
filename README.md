@@ -141,6 +141,33 @@ Rule metrics with no mapping (e.g. `oxygen`) are not shown, and risk-score
 predictions stay empty until a model produces scores. Note the dashboard's
 alerts use the ranges in `data/rules.json`, separate from `ALERT_RANGES` above.
 
+## Manual measurements and biomarker intake
+
+Use **Add measurement** on the dashboard, select an astronaut and collection time, then enter values in the displayed units. Systolic and diastolic pressures are saved together in one transaction. Results are saved as `source=manual` in SQLite and appear in member details after refresh. Manual measurements do not yet affect status/alerts; approved analyte-specific rules and freshness windows are needed first.
+
+- `GET /api/measurement-catalog`: provisional group/analyte keys and fixed units.
+- `POST /api/manual-measurements`: `{astronaut_id, group_id, measured_at, values: {analyte_key: number}}`. Requires a registered astronaut, timezone-aware time and finite numeric values. Units come from the catalogue, not client input. It does not convert units.
+- Existing `POST /api/measurements` remains for generic numeric integrations. Use the validated panel endpoint for the new UI. Member details show the latest manual value per metric from up to 10,000 recent manual rows; full history is available through `GET /api/measurements`.
+
+The BM identifiers are team-provided labels, not a confirmed published standard. The following is a researched interpretation and a provisional catalogue, not a final vendor/lab contract. Only the listed numeric summaries are accepted now; reports, images, categorical findings and raw signals still need defined formats.
+
+| Group | Likely result structure / current preparation |
+| --- | --- |
+| BM01 CBC/WBC/Lymph/Hgb | Panel of named blood counts: WBC and absolute lymphocytes (`10^9/L`), lymphocyte percentage, hemoglobin (`g/dL`). [CBC reference](https://medlineplus.gov/lab-tests/complete-blood-count-cbc/) |
+| BM02 CMP/Glucose/Ca/Renal | Multiple analytes; selected fields are glucose, calcium, creatinine and BUN (`mg/dL`). This is not the full 14-analyte CMP. [CMP reference](https://medlineplus.gov/lab-tests/comprehensive-metabolic-panel-cmp/) |
+| BM03 CRP/Cytokines | CRP (`mg/L`) plus an assay-dependent cytokine panel. CRP is supported; cytokine identifiers/units remain pending. [CRP reference](https://medlineplus.gov/lab-tests/c-reactive-protein-crp-test/) |
+| BM04 Urine chemistry | Separate calcium concentration, specific gravity, pH, and citrate result. Intake distinguishes spot calcium (`mg/dL`) from 24-hour citrate (`mg/24h`); confirm collection protocol. [Urinalysis reference](https://medlineplus.gov/urinalysis.html) |
+| BM05 Urine proteomics/UTI | Protein-by-sample matrix/assay output and urine culture/organism findings, not one scalar. Registered but no numeric form yet. [NASA urine protein dataset](https://osdr.nasa.gov/bio/repo/data/studies/OSD-656), [UTI testing](https://www.niddk.nih.gov/health-information/urologic-diseases/bladder-infection-uti-in-adults/diagnosis) |
+| BM06 HR/HRV/RMSSD | HR (`bpm`), RMSSD (`ms`); raw beat intervals and analysis window are separate future inputs. [PhysioNet HRV definitions](https://archive.physionet.org/tutorials/hrv/) |
+| BM07 Respiratory rate/CO₂ | Respiratory rate (`breaths/min`); proposed end-tidal CO₂ (`mmHg`). Blood total CO₂ and cabin CO₂ are different quantities and need separate identifiers; provider specification pending. |
+| BM08 PTT/Blood pressure | Paired systolic/diastolic BP (`mmHg`), separate PTT (`ms`). Do not infer BP directly from PTT without a validated device/calibration. [AHA cuffless measurement statement](https://professional.heart.org/en/science-news/cuffless-devices-for-the-measurement-of-blood-pressure/top-things-to-know) |
+| BM09 Sleep/WASO/Efficiency | Per-night summary: wake after sleep onset (`min`), sleep efficiency (`%`). Sleep-session boundaries/device definitions remain pending. [Sleep efficiency research](https://pmc.ncbi.nlm.nih.gov/articles/PMC4751425/) |
+| BM10 ONSD/IJV ultrasound | Left/right ONSD (`mm`) summaries are supported. IJV flow/area, laterality, posture, acquisition protocol and image/cine references need a separate contract. [NASA ONSD](https://ntrs.nasa.gov/citations/20140013312), [NASA venous flow context](https://www.nasa.gov/wp-content/uploads/2026/01/ochmo-mtb-007-venous-thrombosis-in-spaceflight.pdf) |
+| BM11 Cognitive/PERCLOS/CTB | PERCLOS (`%`) over a defined window; closure definition matters. CTB abbreviation, task IDs, response times and score scales need confirmation. [Original PERCLOS research](https://www.govinfo.gov/content/pkg/GOVPUB-TD2-PURL-gpo6571/pdf/GOVPUB-TD2-PURL-gpo6571.pdf) |
+| BM12 Skin/Rash/Microbiome | Rash observations/photos and taxon-by-sample counts/abundances, with specimen/site metadata. Registered, with no invented numeric rash scale. [Spaceflight skin study](https://www.nature.com/articles/s41467-024-48625-2) |
+
+Body temperature is also supported in Celsius under `VITALS`. Before automated integration, agree on specimen/site, assay/device, collection/session ID, units, quality flags, reference intervals, and image/report attachments. The current numeric storage is a first step, not support for raw omics or ultrasound files.
+
 ## Repository structure
 
 ```text
@@ -154,6 +181,7 @@ astro-health-monitor/
 │   ├── requirements.txt
 │   ├── vendor/                     # Vendored cardioresp wheel
 │   ├── app/
+│   │   ├── measurement_catalog.py  # Provisional biomarker groups and analyte units
 │   │   ├── main.py                 # FastAPI setup, pages, and static assets
 │   │   ├── db.py                   # SQLite storage: predictions, measurements, alert rule
 │   │   ├── extractors.py           # Model output -> measurement rows, per model
@@ -162,7 +190,7 @@ astro-health-monitor/
 │   │   ├── routers/
 │   │   │   ├── dashboard.py        # Snapshot API and status/alert functions
 │   │   │   ├── predictions.py      # Prediction history and alerts API
-│   │   │   ├── measurements.py     # Measurements API (trends, manual entry)
+│   │   │   ├── measurements.py     # Trends, generic readings, validated manual panels
 │   │   │   └── video.py            # Video upload and analysis endpoint
 │   │   ├── models/
 │   │   │   └── video_model.py      # HR/RR/PRQ model adapter
@@ -170,6 +198,7 @@ astro-health-monitor/
 │   │       ├── factory.py          # Select video/audio/metrics strategy
 │   │       └── strategies.py       # Current pass-through processors
 │   ├── tests/
+│   │   ├── test_manual_measurements.py
 │   │   ├── test_dashboard.py
 │   │   ├── test_processing.py
 │   │   └── test_video_model.py
@@ -177,6 +206,7 @@ astro-health-monitor/
 ├── frontend/
 │   ├── index.html                  # Crew dashboard and detail dialog
 │   ├── dashboard.css               # Shared theme, sidebar, responsive layouts
+│   ├── manual.js                   # Manual measurement dialog and saving
 │   ├── dashboard.js                # Polling, rendering, filters, member details
 │   └── upload.html                 # Video form and analysis results
 ├── data/

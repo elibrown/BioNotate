@@ -5,6 +5,7 @@
 <title>AstroHealth · Crew monitoring</title>
 <link rel="stylesheet" href="/static/dashboard.css">
 <script src="/static/dashboard.js" defer></script>
+<script src="/static/manual.js" defer></script>
 </head>
 <body>
 <aside class="sidebar" aria-label="AstroHealth navigation">
@@ -16,7 +17,7 @@
   <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
 </aside>
 <main>
-<div class="heading"><div><p class="eyebrow">HUMAN PERFORMANCE MONITORING</p><h1>Crew health overview</h1><p class="muted">A shared view of the people behind the mission.</p></div><button id="refresh">Refresh data ↻</button></div>
+<div class="heading"><div><p class="eyebrow">HUMAN PERFORMANCE MONITORING</p><h1>Crew health overview</h1><p class="muted">A shared view of the people behind the mission.</p></div><div class="heading-actions"><button id="add-measurement">＋ Add measurement</button><button id="refresh">Refresh data ↻</button></div></div>
 <p class="demo">DEMO ENVIRONMENT · Synthetic readings and illustrative alert limits. No live monitoring or clinical assessment.</p>
 <p id="connection" role="status">Connecting to crew telemetry…</p>
 <section id="summary" class="summary" aria-label="Crew summary"></section>
@@ -26,4 +27,17 @@
 <footer>ASTROHEALTH / EARLY RISK DETECTION <span>Refreshes every 15 seconds · Readings older than 5 minutes marked stale</span></footer>
 </main>
 <dialog id="detail" aria-labelledby="detail-title"><div class="section-heading"><span class="eyebrow">CREW MEMBER / DETAIL</span><button id="close">Close ×</button></div><div id="detail-content"></div></dialog>
+<dialog id="manual-dialog" aria-labelledby="manual-title">
+  <div class="section-heading"><h2 id="manual-title">Add manual measurements</h2><button id="manual-close" type="button">Close ×</button></div>
+  <p class="muted">Enter results in the displayed units. Leave unmeasured fields blank. These values are recorded without new clinical alert rules.</p>
+  <form id="manual-form" class="manual-form">
+    <label>Astronaut<select id="manual-astronaut" required></select></label>
+    <label>Measured at (your local time)<input id="manual-time" type="datetime-local" required></label>
+    <label>Measurement group<select id="manual-group" required></select></label>
+    <p id="manual-note" class="muted"></p>
+    <div id="manual-fields" class="manual-fields"></div>
+    <button id="manual-save" type="submit">Save measurements</button>
+  </form>
+  <p id="manual-status" role="status"></p>
+</dialog>
 </body></html>
