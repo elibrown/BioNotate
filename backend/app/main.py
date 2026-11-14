@@ -44,4 +44,4 @@ def upload_page():
 
 @app.get("/measurements", include_in_schema=False)
 def measurements_page():
-    return FileResponse(FRONTEND_DIR / "measurements.html", headers={"Cache-Control": "no-cache"})
+    return FileResponse(FRONTEND_DIR / "manual_metrics.html", headers={"Cache-Control": "no-cache"})
