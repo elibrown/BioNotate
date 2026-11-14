@@ -91,49 +91,58 @@ replace `run_model()` in `backend/app/models/video_model.py` with the real one.
 
 Everything is stored in one SQLite file, `backend/astrohealth.db` (created on
 first use, not committed to git; set `ASTROHEALTH_DB` to use another path).
-All database code is in `backend/app/db.py`. There are three tables:
+All database code is in `backend/app/db.py`. There are two tables:
 
 - **predictions**: one row per model run (e.g. one uploaded video). It keeps
   the model's full output as JSON, its `model`, `status`, and whether it is an
   alert. This is what the UI shows as status and alerts.
-- **measurements**: the health data we present and analyse for trends. Each row
-  is one value: astronaut, biomarker, metric, value, unit, time. A row either
-  came from a model run (`prediction_id` set) or was entered by hand, e.g. a lab
-  result (`source = "manual"`).
-- **biomarkers**: the kinds of data we track, pre-filled with BM01 to BM12.
-  Adding a new kind of data is adding a row; the tables don't change.
+- **measurements**: every reading, for charts and trend analysis. Each row is
+  one value: astronaut, `source`, `metric`, value, unit, time. Each model has
+  its own metrics, so `source` is the model name (e.g. `cardioresp`) and
+  `metric` is its field (e.g. `hr_bpm`). Values entered by hand, e.g. a lab
+  result, have `source = "manual"` and no `prediction_id`.
 
-After each model run, `backend/app/extractors.py` picks the values to keep out
-of the model output. Today the `rppg` model's `hr_bpm` is stored under
-`BM06_HR_HRV_RMSSD`. A new model needs one small function there.
+After each model run, `backend/app/extractors.py` picks the readings out of the
+model output. For `cardioresp` it saves every reading with status `ok` or
+`partial`: `hr_bpm`, `respi_rate` and `prq` (a 60 s video gives about 30
+readings x 3 metrics). `warming_up` and `no_face` readings have no values and
+are skipped. A reading's time is the upload time plus its `timestamp_s`
+(stored as `offset_s`); approximate, since we don't know when the video was
+recorded. A new model needs one small function in that file.
 
-A prediction is an alert if the model returns `"alert": true`, or a `status`
-other than `"ok"`/`"normal"`. Change `is_alert()` in `backend/app/db.py` as we
-learn more.
+A prediction is an alert if the model returns `"alert": true`, or if the
+**median** of a metric's readings in that video is outside its range in
+`ALERT_RANGES` (`backend/app/db.py`). The median, so one noisy reading doesn't
+raise an alert. Today the only range is cardioresp heart rate 40-120 bpm, a
+placeholder until someone sets real limits. Respiratory rate has no range
+because cardioresp's RR is not validated. The model `status` describes video
+quality, not health, so it never triggers an alert; it is still saved so the
+UI can say "retake the video".
 
 | Endpoint | What it returns |
 | --- | --- |
 | `GET /api/predictions?astronaut_id=A-07&limit=50` | Model runs, newest first (omit `astronaut_id` for everyone) |
 | `GET /api/predictions/{id}` | One model run, with its full output |
-| `GET /api/alerts` | Unacknowledged alerts, newest first (`?astronaut_id=`, `?include_acknowledged=true`) |
-| `POST /api/alerts/{id}/ack` | Marks an alert as seen |
-| `GET /api/measurements?astronaut_id=A-07&biomarker=BM06_HR_HRV_RMSSD&metric=hr_bpm&since=2026-11-01` | Values oldest first, ready for a trend chart (all filters optional, plus `until`, `limit`) |
-| `POST /api/measurements` | Add one value by hand (JSON: `astronaut_id`, `biomarker`, `metric`, `value`, `unit`, optional `measured_at`) |
-| `GET /api/biomarkers` | The biomarker types |
-| `POST /api/biomarkers` | Add a type (JSON: `code`, `name`, optional `description`) |
+| `GET /api/alerts` | Alerts nobody has handled, newest first (`?astronaut_id=`, `?include_acknowledged=true`) |
+| `POST /api/alerts/{id}/ack` | Marks an alert as handled |
+| `GET /api/measurements?astronaut_id=A-07&source=cardioresp&metric=hr_bpm&since=2026-11-01` | Readings oldest first, ready for a chart (all filters optional, plus `prediction_id` for one video, `until`, `limit`) |
+| `POST /api/measurements` | Add one value by hand (JSON: `astronaut_id`, `metric`, `value`, optional `unit`, `measured_at`, `source` (default `manual`)) |
 
 A measurement looks like:
 
 ```json
-{"id": 1, "astronaut_id": "A-07", "biomarker": "BM06_HR_HRV_RMSSD",
- "metric": "hr_bpm", "value": 62.2, "unit": "bpm",
- "measured_at": "2026-11-14T12:19:31+00:00", "prediction_id": 1, "source": "rppg"}
+{"id": 1, "astronaut_id": "A-07", "source": "cardioresp", "metric": "hr_bpm",
+ "value": 71.8, "unit": "bpm", "measured_at": "2026-11-14T12:20:01.000+00:00",
+ "offset_s": 30.0, "prediction_id": 1}
 ```
 
 `POST /api/video` now also returns `prediction_id`, `created_at`, `is_alert`
 and the `measurements` it saved.
 
-Tests: from `backend/`, run `python -m unittest discover tests`.
+Tests: from `backend/`, run `python -m pytest -q`.
+
+If you ran an earlier version of this branch, delete `backend/astrohealth.db`
+once; it will be recreated with the current tables.
 
 
 ## Implementation plan
@@ -211,3 +220,123 @@ Keep source files, `requirements.txt`, Python package markers (`__init__.py`), a
 Local PyCharm settings (`.idea/`), virtual environments (`.venv/`), Python caches, environment secrets, and uploaded videos are ignored by the root `.gitignore`. Ignoring a file does not untrack it if it has already been committed or staged.
 
 Future transformer and model-service boundaries should grow from this skeleton. Their runtime, deployment layout, prediction contract, and database remain undecided.
+
+
+## Cardiorespiratory Monitoring
+
+AstroHealth integrates `cardioresp` v0.2.0 to estimate
+cardiorespiratory measurements from prerecorded face videos.
+
+### Supported measurements
+
+- **Heart Rate (HR):** Estimated beats per minute.
+- **Respiratory Rate (RR):** Estimated breaths per minute.
+- **Pulse-Respiration Quotient (PRQ):** HR divided by RR.
+
+All three measurements are derived from the same analysis
+window, avoiding timestamp alignment between separate models.
+
+### Model installation
+
+Requirements:
+- Python 3.11 or newer
+- A supported OpenCV video decoder
+
+The model wheel is included in `backend/vendor/`.
+
+From the `backend` directory:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+The installation includes cardioresp, NumPy, SciPy,
+scikit-learn and OpenCV.
+
+### Running the backend
+
+From `backend/`:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+Open http://127.0.0.1:8000/ to upload a video.
+
+### Video upload API
+
+**Endpoint:** `POST /api/video`
+
+**Content type:** `multipart/form-data`
+
+Parameters:
+- `file` (required): Video recording
+- `astronaut_id` (optional): Identifier for the astronaut
+
+The backend saves the recording, selects VideoProcessor
+through ProcessorFactory, and calls the cardioresp model.
+
+### Recording requirements
+
+- Duration: At least 30 seconds; 60+ seconds recommended
+- Frame rate: At least 15 FPS; 30 FPS recommended
+- Resolution: At least 640x480 recommended
+- One seated person facing the camera
+- Stable lighting and minimal movement
+
+The first 30 seconds are used for warm-up.
+
+### API response
+
+The response contains:
+
+- `model`: cardioresp
+- `model_version`: 0.2.0
+- `status`: Status of the latest reading
+- `hr_bpm`: Latest heart-rate estimate
+- `respi_rate`: Latest respiratory-rate estimate
+- `prq`: Latest HR/RR quotient
+- `summary`: Recording-level median estimates
+- `measurements`: Timestamped readings and their statuses
+
+The `summary` contains median HR and RR estimates from
+successful readings and calculates PRQ from those medians.
+It also reports the number of valid readings.
+
+Reading statuses:
+- `warming_up`: Not enough data collected yet
+- `ok`: HR, RR and PRQ produced
+- `partial`: HR available, RR/PRQ unavailable
+- `no_face`: Face detection unsuccessful
+
+Invalid recordings return HTTP 422 with a descriptive error.
+
+### Running tests
+
+From `backend/`:
+
+```bash
+python -m pip install pytest
+python -m pytest -v
+```
+
+### Important accuracy limitations
+
+This is an experimental prototype, not a medical device.
+
+The model developer's UBFC-rPPG evaluation reported:
+- HR MAE: 0.95 BPM on DATASET_1
+- HR MAE: 2.73 BPM on DATASET_2
+- RR MAE: 3.65 breaths/min on DATASET_1
+
+Respiratory-rate estimation did not outperform a
+constant-mean baseline (3.53 breaths/min MAE).
+Consequently, RR and PRQ are not sufficiently validated
+for medical decisions.
+
+The model has not been validated on astronauts, in
+microgravity, or under International Space Station
+lighting conditions.
+
+A status of `ok` indicates successful computation,
+not verified clinical accuracy.

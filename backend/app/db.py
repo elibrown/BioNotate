@@ -1,24 +1,22 @@
 """
-Storage (SQLite): predictions, measurements and the list of biomarker types.
+Storage (SQLite): predictions and measurements.
 
-Three tables:
+Two tables:
 
   predictions   One row per model run (e.g. one uploaded video).
                 Keeps the model's FULL output as JSON plus its status,
                 and whether it is an alert for the UI.
 
   measurements  The health data we present and analyse for trends.
-                One row = one number for one astronaut at one time,
-                e.g. (A-07, BM06_HR_HRV_RMSSD, hr_bpm, 62.2, bpm, 2026-11-14T12:19Z).
-                Rows can come from a model run (prediction_id is set) or be
-                entered by hand, e.g. lab results (prediction_id is NULL).
-
-  biomarkers    The allowed biomarker types (BM01 ... BM12). Adding a new
-                kind of data = adding one row here; no table changes.
+                One row = one reading of one metric, e.g.
+                (A-07, cardioresp, hr_bpm, 71.8 bpm, 12:19:31).
+                A video gives many rows: every reading the model made.
+                `source` is where it came from (the model name, or "manual"
+                for values typed in by hand) and `metric` is what it is.
 
 "Long" format for measurements (one value per row, instead of one column per
-biomarker) is what lets us add new kinds of data without touching the schema,
-and makes "HR for astronaut A-07 over the last week" a single simple query.
+metric) is what lets each model bring its own metrics without touching the
+schema, and makes "HR for astronaut A-07 over the last week" one simple query.
 
 - The database is ONE file: backend/astrohealth.db (git-ignored).
   Set the ASTROHEALTH_DB environment variable to use another path (tests do).
@@ -29,29 +27,25 @@ and makes "HR for astronaut A-07 over the last week" a single simple query.
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from statistics import median
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]   # .../backend
 DEFAULT_DB_PATH = BACKEND_DIR / "astrohealth.db"
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS biomarkers (
-    code        TEXT PRIMARY KEY,          -- e.g. BM06_HR_HRV_RMSSD
-    name        TEXT NOT NULL,             -- human-readable, for the UI
-    description TEXT
-);
-
 CREATE TABLE IF NOT EXISTS predictions (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     astronaut_id       TEXT,                 -- may be NULL (optional on upload)
     created_at         TEXT    NOT NULL,     -- UTC, ISO 8601
     video_file         TEXT,                 -- file name in backend/uploads/
-    model              TEXT,                 -- result["model"], e.g. "rppg"
+    model              TEXT,                 -- result["model"], e.g. "cardioresp"
     model_version      TEXT,                 -- result["model_version"]
     status             TEXT,                 -- result["status"], e.g. "ok"
     is_alert           INTEGER NOT NULL DEFAULT 0,   -- 1 = needs attention
-    alert_acknowledged INTEGER NOT NULL DEFAULT 0,   -- 1 = someone saw it in the UI
+    alert_acknowledged INTEGER NOT NULL DEFAULT 0,   -- 1 = someone handled it in the UI
     result_json        TEXT    NOT NULL      -- the full model output, as JSON
 );
 CREATE INDEX IF NOT EXISTS idx_predictions_astronaut
@@ -62,37 +56,27 @@ CREATE INDEX IF NOT EXISTS idx_predictions_alerts
 CREATE TABLE IF NOT EXISTS measurements (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     astronaut_id  TEXT,
-    biomarker     TEXT    NOT NULL REFERENCES biomarkers(code),
-    metric        TEXT    NOT NULL,          -- e.g. hr_bpm, rmssd_ms, glucose_mg_dl
+    source        TEXT    NOT NULL,          -- model name (e.g. "cardioresp") or "manual"
+    metric        TEXT    NOT NULL,          -- e.g. hr_bpm, respi_rate, glucose_mg_dl
     value         REAL    NOT NULL,
-    unit          TEXT,                      -- e.g. bpm, ms, mg/dL
-    measured_at   TEXT    NOT NULL,          -- UTC, ISO 8601
-    prediction_id INTEGER REFERENCES predictions(id),  -- NULL if entered by hand
-    source        TEXT                       -- e.g. "rppg" (model) or "manual"
+    unit          TEXT,                      -- e.g. bpm, breaths/min, mg/dL
+    measured_at   TEXT    NOT NULL,          -- UTC, ISO 8601 with milliseconds
+    offset_s      REAL,                      -- seconds into the video; NULL if manual
+    prediction_id INTEGER REFERENCES predictions(id)   -- NULL if entered by hand
 );
 CREATE INDEX IF NOT EXISTS idx_measurements_trend
-    ON measurements (astronaut_id, biomarker, metric, measured_at);
+    ON measurements (astronaut_id, source, metric, measured_at);
 """
 
-# The biomarker types we know about today. New ones can be added at runtime
-# with add_biomarker() / POST /api/biomarkers, or by adding a line here.
-DEFAULT_BIOMARKERS = [
-    ("BM01_CBC_WBC_Lymph_Hgb", "Blood count: WBC, lymphocytes, hemoglobin"),
-    ("BM02_CMP_Glucose_Ca_Renal", "Metabolic panel: glucose, calcium, renal"),
-    ("BM03_Blood_CRP_Cytokines", "Inflammation: CRP, cytokines"),
-    ("BM04_Urine_Ca_USG_pH_Citrate", "Urine: calcium, specific gravity, pH, citrate"),
-    ("BM05_Urine_Proteomics_UTI", "Urine proteomics, UTI"),
-    ("BM06_HR_HRV_RMSSD", "Heart rate and HRV (RMSSD)"),
-    ("BM07_Respiratory_Rate_CO2", "Respiratory rate, CO2"),
-    ("BM08_PTT_Blood_Pressure", "Blood pressure (pulse transit time)"),
-    ("BM09_Sleep_WASO_Efficiency", "Sleep: WASO, efficiency"),
-    ("BM10_ONSD_IJV_Ultrasound", "Ultrasound: ONSD, IJV"),
-    ("BM11_Cognitive_PERCLOS_CTB", "Cognition: PERCLOS, cognitive test battery"),
-    ("BM12_Skin_Rash_Microbiome", "Skin: rash, microbiome"),
-]
-
-# Model statuses that mean "nothing wrong". Anything else is an alert.
-NORMAL_STATUSES = {"ok", "normal"}
+# Normal ranges used for alerts: (source, metric) -> (low, high).
+# If the MEDIAN of a video's readings is outside its range, the prediction
+# is an alert. (The median, so one noisy reading doesn't raise an alert.)
+# PLACEHOLDER values, not clinical advice: set them with whoever owns the
+# medical side. Respiratory rate is left out on purpose: the cardioresp
+# README says RR is not validated well enough to act on.
+ALERT_RANGES = {
+    ("cardioresp", "hr_bpm"): (40.0, 120.0),
+}
 
 _initialized: set[str] = set()
 
@@ -113,17 +97,20 @@ def _connect() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")   # SQLite needs this per connection
     if str(path) not in _initialized:
         conn.executescript(SCHEMA)
-        conn.executemany(
-            "INSERT OR IGNORE INTO biomarkers (code, name) VALUES (?, ?)",
-            DEFAULT_BIOMARKERS,
-        )
-        conn.commit()
         _initialized.add(str(path))
     return conn
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+def to_iso(moment: datetime) -> str:
+    """
+    The one time format we store: UTC, ISO 8601, milliseconds, e.g.
+    2026-11-14T12:19:31.010+00:00. Same length every time, so comparing the
+    text gives the same answer as comparing the times ("since" filters).
+    A time without a timezone is taken to be UTC.
+    """
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc).isoformat(timespec="milliseconds")
 
 
 def init_db() -> None:
@@ -132,51 +119,32 @@ def init_db() -> None:
 
 
 # --------------------------------------------------------------------------
-# Biomarker types
-# --------------------------------------------------------------------------
-
-def list_biomarkers() -> list[dict]:
-    conn = _connect()
-    rows = conn.execute("SELECT * FROM biomarkers ORDER BY code").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-
-def biomarker_exists(code: str) -> bool:
-    conn = _connect()
-    row = conn.execute("SELECT 1 FROM biomarkers WHERE code = ?", (code,)).fetchone()
-    conn.close()
-    return row is not None
-
-
-def add_biomarker(code: str, name: str, description: str | None = None) -> dict:
-    """Register a new kind of data. Does nothing if the code already exists."""
-    conn = _connect()
-    with conn:
-        conn.execute(
-            "INSERT OR IGNORE INTO biomarkers (code, name, description) VALUES (?, ?, ?)",
-            (code, name, description),
-        )
-    row = conn.execute("SELECT * FROM biomarkers WHERE code = ?", (code,)).fetchone()
-    conn.close()
-    return dict(row)
-
-
-# --------------------------------------------------------------------------
 # Predictions
 # --------------------------------------------------------------------------
 
-def is_alert(result: dict) -> bool:
+def is_alert(result: dict, measurements: list[dict] | None = None) -> bool:
     """
-    >>> THE ALERT RULE. Change this as we learn what the models return. <<<
+    >>> THE ALERT RULE. Change this as we learn more. <<<
 
     A prediction is an alert if the model says so explicitly ("alert": true),
-    or if its "status" is not one of NORMAL_STATUSES ("ok", "normal").
+    or if the median of a metric's readings is outside ALERT_RANGES.
+
+    The model's "status" is NOT used: for cardioresp it describes data
+    quality (warming_up, ok, partial, no_face, insufficient_data), not the
+    astronaut's health. It is still saved, so the UI can show e.g.
+    "retake the video".
     """
     if "alert" in result:
         return bool(result["alert"])
-    status = result.get("status")
-    return status is not None and str(status).lower() not in NORMAL_STATUSES
+    source = str(result.get("model"))
+    readings_by_metric = defaultdict(list)
+    for m in measurements or []:
+        readings_by_metric[m["metric"]].append(float(m["value"]))
+    for metric, values in readings_by_metric.items():
+        limits = ALERT_RANGES.get((source, metric))
+        if limits and not (limits[0] <= median(values) <= limits[1]):
+            return True
+    return False
 
 
 def _prediction_row(row: sqlite3.Row) -> dict:
@@ -205,14 +173,19 @@ def save_prediction(
     measurements: list[dict] | None = None,
 ) -> dict:
     """
-    Store one model run, plus the measurements taken from it, in one go
+    Store one model run, plus the readings taken from it, in one go
     (both are saved, or neither is). Returns the saved prediction with a
     "measurements" list.
 
-    Each measurement is a dict with: biomarker, metric, value, and
-    optionally unit. They get this prediction's astronaut, time and model.
+    Each measurement is a dict with: metric, value, and optionally unit and
+    offset_s (seconds into the video). They get this prediction's astronaut
+    and the model name as their source.
+
+    Time of a reading = upload time + offset_s. That's approximate: we don't
+    know when the video was actually recorded, only when it was uploaded.
     """
-    created_at = _now()
+    now = datetime.now(timezone.utc)
+    created_at = to_iso(now)
     model = _str_or_none(result.get("model"))
     conn = _connect()
     with conn:   # one transaction
@@ -230,26 +203,28 @@ def save_prediction(
                 model,
                 _str_or_none(result.get("model_version")),
                 _str_or_none(result.get("status")),
-                int(is_alert(result)),
+                int(is_alert(result, measurements)),
                 json.dumps(result, default=str),
             ),
         )
         prediction_id = cur.lastrowid
         for m in measurements or []:
+            offset_s = m.get("offset_s")
+            measured_at = now + timedelta(seconds=offset_s or 0)
             _insert_measurement(
                 conn,
                 astronaut_id=astronaut_id,
-                biomarker=m["biomarker"],
+                source=model or "unknown",
                 metric=m["metric"],
                 value=m["value"],
                 unit=m.get("unit"),
-                measured_at=created_at,
+                measured_at=to_iso(measured_at),
+                offset_s=offset_s,
                 prediction_id=prediction_id,
-                source=model,
             )
     conn.close()
     saved = get_prediction(prediction_id)
-    saved["measurements"] = list_measurements(prediction_id=prediction_id)
+    saved["measurements"] = list_measurements(prediction_id=prediction_id, limit=100_000)
     return saved
 
 
@@ -282,7 +257,7 @@ def list_alerts(
     include_acknowledged: bool = False,
     limit: int = 50,
 ) -> list[dict]:
-    """Alerts, newest first. By default only the ones nobody has acknowledged."""
+    """Alerts, newest first. By default only the ones nobody has handled."""
     query = "SELECT * FROM predictions WHERE is_alert = 1"
     params: list = []
     if not include_acknowledged:
@@ -299,7 +274,7 @@ def list_alerts(
 
 
 def acknowledge_alert(prediction_id: int) -> dict | None:
-    """Mark an alert as seen. Returns the updated row, or None if no such id."""
+    """Mark an alert as handled. Returns the updated row, or None if no such id."""
     conn = _connect()
     with conn:
         conn.execute(
@@ -314,24 +289,23 @@ def acknowledge_alert(prediction_id: int) -> dict | None:
 # Measurements
 # --------------------------------------------------------------------------
 
-def _insert_measurement(conn, *, astronaut_id, biomarker, metric, value,
-                        unit, measured_at, prediction_id, source) -> int:
+def _insert_measurement(conn, *, astronaut_id, source, metric, value, unit,
+                        measured_at, offset_s, prediction_id) -> int:
     cur = conn.execute(
         """
         INSERT INTO measurements
-            (astronaut_id, biomarker, metric, value, unit,
-             measured_at, prediction_id, source)
+            (astronaut_id, source, metric, value, unit,
+             measured_at, offset_s, prediction_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (astronaut_id, biomarker, metric, float(value), unit,
-         measured_at, prediction_id, source),
+        (astronaut_id, source, metric, float(value), unit,
+         measured_at, offset_s, prediction_id),
     )
     return cur.lastrowid
 
 
 def add_measurement(
     astronaut_id: str,
-    biomarker: str,
     metric: str,
     value: float,
     unit: str | None = None,
@@ -344,13 +318,13 @@ def add_measurement(
         new_id = _insert_measurement(
             conn,
             astronaut_id=astronaut_id,
-            biomarker=biomarker,
+            source=source,
             metric=metric,
             value=value,
             unit=unit,
-            measured_at=measured_at or _now(),
+            measured_at=measured_at or to_iso(datetime.now(timezone.utc)),
+            offset_s=None,
             prediction_id=None,
-            source=source,
         )
     row = conn.execute("SELECT * FROM measurements WHERE id = ?", (new_id,)).fetchone()
     conn.close()
@@ -359,7 +333,7 @@ def add_measurement(
 
 def list_measurements(
     astronaut_id: str | None = None,
-    biomarker: str | None = None,
+    source: str | None = None,
     metric: str | None = None,
     since: str | None = None,
     until: str | None = None,
@@ -368,11 +342,12 @@ def list_measurements(
 ) -> list[dict]:
     """
     Measurements in time order (oldest first), ready to draw as a trend.
-    Every filter is optional; since/until are ISO 8601 times (UTC).
+    Every filter is optional; since/until are times from to_iso().
+    If there are more than `limit`, you get the newest `limit` of them.
     """
     filters = {
         "astronaut_id = ?": astronaut_id,
-        "biomarker = ?": biomarker,
+        "source = ?": source,
         "metric = ?": metric,
         "measured_at >= ?": since,
         "measured_at <= ?": until,

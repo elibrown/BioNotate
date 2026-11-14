@@ -48,9 +48,22 @@ def upload_video(
     with saved_path.open("wb") as out_file:
         shutil.copyfileobj(file.file, out_file)
 
+
     processor = ProcessorFactory().get_processor("video")
     processed_video = processor.process(saved_path)
-    result = run_model(processed_video)
+
+    try:
+        result = run_model(processed_video)
+    except ValueError as exc:
+        # The recording failed the model's input validation.
+        # Don't keep a video that cannot be processed.
+        saved_path.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
 
     # Keep a record of every prediction, plus the health values it measured
     # (e.g. heart rate). See app/db.py and app/extractors.py.
