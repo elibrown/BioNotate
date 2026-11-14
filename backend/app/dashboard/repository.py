@@ -84,5 +84,10 @@ class DemoCrewRepository:
         return members
 
 
+# TODO(@itamar): Replace DemoCrewRepository here with the database-backed
+# CrewRepository adapter for users, metrics, and predictions joined by astronaut ID.
+# Implement list_crew() returning CrewMember objects with latest metrics/history
+# and latest predictions. Use timezone-aware timestamps; omit evaluation_time
+# (the demo replay clock) so live freshness uses the current UTC time.
 def get_repository() -> CrewRepository:
     return DemoCrewRepository()

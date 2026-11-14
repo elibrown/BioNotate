@@ -31,6 +31,29 @@ Status is calculated by the backend, never stored on a user:
 
 The demo clock is the latest timestamp in the fixtures. Stale abnormal readings retain alerts; missing predictions alone do not make status unknown. All readings, scores, and limits are synthetic.
 
+## Class interactions
+
+```mermaid
+classDiagram
+    class CrewRepository {
+        <<interface>>
+        list_crew()
+    }
+    class DemoCrewRepository {
+        read(name)
+        list_crew()
+    }
+    class CrewMember
+    class Metric
+    class Prediction
+    CrewRepository <|.. DemoCrewRepository : implements
+    CrewRepository --> CrewMember : returns
+    CrewMember "1" *-- "0..*" Metric
+    CrewMember "1" *-- "0..*" Prediction
+```
+
+Request flow: `dashboard.js` → `GET /api/dashboard` → `build_snapshot()` → `CrewRepository.list_crew()` → `evaluate_member()`. Member evaluation calls separate metric, prediction, freshness, and status functions. The diagram shows the actual repository and data-model classes. `get_repository()` supplies the implementation; Itamar's database adapter will implement the same repository interface.
+
 ## Files and integration
 
 `index.html` defines the layout; `dashboard.css` handles styling and responsive behavior; `dashboard.js` fetches data, renders cards, filters, and opens details; `upload.html` preserves the upload form.
