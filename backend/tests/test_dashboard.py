@@ -60,13 +60,13 @@ class DashboardTests(unittest.TestCase):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from app import db
-        from app.seed_samples import seed_samples
+        from app.db_snapshot import initialize_database
 
         with TemporaryDirectory() as directory, patch.dict(os.environ, {
             'ASTROHEALTH_DB': str(Path(directory) / 'samples.db'),
         }):
-            self.assertGreater(seed_samples(), 0)
-            self.assertEqual(seed_samples(), 0)
+            self.assertTrue(initialize_database())
+            self.assertFalse(initialize_database())
             client = TestClient(app)
             sample = client.get('/api/dashboard').json()
             self.assertEqual(sample['mode'], 'live')
@@ -81,3 +81,21 @@ class DashboardTests(unittest.TestCase):
             temperature = next(m for m in real['manual_measurements'] if m['metric']=='temperature_c')
             self.assertEqual(temperature['value'], 37.2)
             self.assertNotIn('id="data-source"', client.get('/').text)
+
+    def test_shared_snapshot_preserves_local_data(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import sqlite3
+        from app.db_snapshot import initialize_database
+
+        with TemporaryDirectory() as directory:
+            target = Path(directory) / 'runtime.sqlite3'
+            with patch.dict(os.environ, {'ASTROHEALTH_DB': str(target)}):
+                assert initialize_database()
+                with sqlite3.connect(target) as connection:
+                    assert connection.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+                    assert connection.execute('SELECT COUNT(*) FROM measurements').fetchone()[0] > 0
+                    connection.execute("INSERT INTO astronauts(id,name) VALUES ('LOCAL', 'Local Crew')")
+                assert not initialize_database()
+                with sqlite3.connect(target) as connection:
+                    assert connection.execute("SELECT name FROM astronauts WHERE id='LOCAL'").fetchone()[0] == 'Local Crew'

@@ -199,7 +199,6 @@ Use **Manual measurements** in the sidebar (`/measurements`) to record one metri
 
 Docker stores SQLite at `/app/storage/astrohealth.db` in the persistent `database` volume. Container rebuilds/recreation retain it; `docker compose down -v` deletes it. Venv uses its own `backend/astrohealth.db` file.
 
-Populate persistent synthetic examples with `docker compose exec app python -m app.seed_samples` (venv: `python -m app.seed_samples` from `backend/`). The command is repeatable and preserves real records. Synthetic readings stay labeled, are exempt from live freshness expiry, and yield to real model/manual readings. There is no sample-preview dashboard or source selector.
 
 ## Shared database snapshot
 
