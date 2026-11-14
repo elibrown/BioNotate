@@ -61,17 +61,7 @@ The demo clock is the latest fixture timestamp. Member details show trends, pred
 
 ## Dashboard class relationships
 
-```mermaid
-classDiagram
-    class CrewRepository {
-        <<interface>>
-        list_crew()
-    }
-    CrewRepository <|.. DemoCrewRepository
-    CrewRepository --> CrewMember : returns
-    CrewMember "1" *-- "0..*" Metric
-    CrewMember "1" *-- "0..*" Prediction
-```
+![Dashboard class relationships](docs/diagrams/dashboard-classes.svg)
 
 ## Repository structure
 
@@ -113,6 +103,7 @@ astro-health-monitor/
 │   ├── predictions.json
 │   └── rules.json
 └── docs/diagrams/
+    ├── dashboard-classes.svg       # Repository and data-model relationships
     ├── dashboard-design.svg        # Dashboard read flow
     └── system-design.svg           # Target upload/prediction flow
 ```
