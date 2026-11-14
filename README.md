@@ -189,3 +189,9 @@ astro-health-monitor/
 ```
 
 Python package markers and empty-directory placeholders are omitted from the tree. Next decisions: model/preprocessing contracts, ingestion limits and retention, synchronous versus asynchronous prediction, and database persistence/retry behavior.
+
+## Manual measurements
+
+Use **Manual measurements** in the sidebar (`/measurements`) to record paired blood pressure (mmHg), glucose (mg/dL), or temperature (°C). Choose an astronaut and collection time. Each value is saved as one SQLite measurement row with `source=manual` and shown in member details. Manual values do not change health status or trigger alerts yet.
+
+`GET /api/measurement-catalog` lists supported fields/units; `POST /api/manual-measurements` validates and saves a panel atomically. No device adapters or CSV imports are included.

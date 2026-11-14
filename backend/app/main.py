@@ -40,3 +40,8 @@ def dashboard_page():
 @app.get("/upload", include_in_schema=False)
 def upload_page():
     return FileResponse(FRONTEND_DIR / "upload.html")
+
+
+@app.get("/measurements", include_in_schema=False)
+def measurements_page():
+    return FileResponse(FRONTEND_DIR / "measurements.html")
