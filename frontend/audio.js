@@ -214,7 +214,13 @@
           too_little_speech: "Count all the way to 20 and hold the vowel sounds longer."
         };
         $("audio-result-title").textContent = "Recording needs attention";
-        $("audio-result-message").textContent = `${result.log_message || "The audio could not be analyzed."} ${guidance[result.reason] || "Please review and retry the recordings."}`;
+        const advice = result.advice || guidance[result.reason] ||
+          "Please review and retry the recordings.";
+
+        $("audio-result-message").textContent = [
+          result.log_message || "The audio could not be analyzed.",
+          advice
+        ].filter(Boolean).join(" ");
         $("audio-result").hidden = false;
         status("The model rejected the recording quality. You can retry individual clips.");
       } else if (result?.status === "ok") {
