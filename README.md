@@ -141,9 +141,24 @@ Rule metrics with no mapping (e.g. `oxygen`) are not shown, and risk-score
 predictions stay empty until a model produces scores. Note the dashboard's
 alerts use the ranges in `data/rules.json`, separate from `ALERT_RANGES` above.
 
+## Input pages and SQLite simulation
+
+The left sidebar links to **Dashboard** (`/`), **Manual measurements** (`/measurements`), **Video** (`/upload`), and **Audio** (`/audio`). Audio accepts an uploaded file or microphone recording (browser permission required on localhost/HTTPS), previews it, and stores it through `POST /api/audio` in the persistent uploads volume. Audio size is limited to 20 MiB; validation currently checks the extension and size, not media content. No audio health model or prediction persistence is connected yet.
+
+To populate the database with the original synthetic JSON readings, explicitly run:
+
+```bash
+# Docker (running container)
+docker compose exec app python -m app.seed_demo
+# Venv, from backend/
+python -m app.seed_demo
+```
+
+Seeding is repeatable and adds only missing simulation observations; it preserves existing profiles/readings. Simulation readings use `source=simulation`, not `manual` or `cardioresp`. When simulation readings exist and no cardioresp measurements exist, the dashboard uses a clearly labeled SQLite simulation replay with freshness evaluated at the latest simulated observation. As soon as real model readings exist, the dashboard returns to live mode and normal freshness rules. Manual observations remain separate and viewable in member details. The biologist's CSV is not imported or interpreted by this seed command.
+
 ## Manual measurements and biomarker intake
 
-Use **Add measurement** on the dashboard, select an astronaut and collection time, then enter values in the displayed units. Systolic and diastolic pressures are saved together in one transaction. Results are saved as `source=manual` in SQLite and appear in member details after refresh. Manual measurements do not yet affect status/alerts; approved analyte-specific rules and freshness windows are needed first.
+Use **Manual measurements** in the sidebar, select an astronaut and collection time, then enter values in the displayed units. Systolic and diastolic pressures are saved together in one transaction. Results are saved as `source=manual` in SQLite and appear in member details after refresh. Manual measurements do not yet affect status/alerts; approved analyte-specific rules and freshness windows are needed first.
 
 - `GET /api/measurement-catalog`: provisional group/analyte keys and fixed units.
 - `POST /api/manual-measurements`: `{astronaut_id, group_id, measured_at, values: {analyte_key: number}}`. Requires a registered astronaut, timezone-aware time and finite numeric values. Units come from the catalogue, not client input. It does not convert units.
@@ -181,6 +196,7 @@ astro-health-monitor/
 │   ├── requirements.txt
 │   ├── vendor/                     # Vendored cardioresp wheel
 │   ├── app/
+│   │   ├── seed_demo.py             # Explicit, repeatable SQLite simulation seed
 │   │   ├── measurement_catalog.py  # Provisional biomarker groups and analyte units
 │   │   ├── main.py                 # FastAPI setup, pages, and static assets
 │   │   ├── db.py                   # SQLite storage: predictions, measurements, alert rule
@@ -190,6 +206,7 @@ astro-health-monitor/
 │   │   ├── routers/
 │   │   │   ├── dashboard.py        # Snapshot API and status/alert functions
 │   │   │   ├── predictions.py      # Prediction history and alerts API
+│   │   │   ├── audio.py            # Audio storage endpoint (no model yet)
 │   │   │   ├── measurements.py     # Trends, generic readings, validated manual panels
 │   │   │   └── video.py            # Video upload and analysis endpoint
 │   │   ├── models/
@@ -206,7 +223,10 @@ astro-health-monitor/
 ├── frontend/
 │   ├── index.html                  # Crew dashboard and detail dialog
 │   ├── dashboard.css               # Shared theme, sidebar, responsive layouts
-│   ├── manual.js                   # Manual measurement dialog and saving
+│   ├── measurements.html           # Manual measurement page
+│   ├── audio.html                  # Audio upload / recording page
+│   ├── audio.js                    # Microphone, preview, audio submission
+│   ├── manual.js                   # Manual measurement form and saving
 │   ├── dashboard.js                # Polling, rendering, filters, member details
 │   └── upload.html                 # Video form and analysis results
 ├── data/

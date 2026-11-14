@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import dashboard, measurements, predictions, video
+from app.routers import audio, dashboard, measurements, predictions, video
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -15,6 +15,7 @@ app = FastAPI(
 )
 
 app.include_router(video.router)
+app.include_router(audio.router)
 app.include_router(predictions.router)
 app.include_router(measurements.router)
 app.include_router(dashboard.router)
@@ -24,7 +25,7 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 @app.middleware("http")
 async def prevent_stale_frontend(request, call_next):
     response = await call_next(request)
-    if request.url.path in {"/", "/upload"} or request.url.path.startswith("/static/"):
+    if request.url.path in {"/", "/upload", "/measurements", "/audio"} or request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
@@ -47,3 +48,13 @@ def dashboard_page():
 @app.get("/upload", include_in_schema=False)
 def upload_page():
     return FileResponse(FRONTEND_DIR / "upload.html")
+
+
+@app.get("/measurements", include_in_schema=False)
+def measurements_page():
+    return FileResponse(FRONTEND_DIR / "measurements.html")
+
+
+@app.get("/audio", include_in_schema=False)
+def audio_page():
+    return FileResponse(FRONTEND_DIR / "audio.html")

@@ -57,8 +57,9 @@ class ManualMeasurementTests(TestCase):
                          {'VITALS', *(f'BM{i:02}' for i in range(1, 13))})
 
     def test_frontend_revalidates_and_serves_manual_entry(self):
-        for path in ('/', '/upload', '/static/dashboard.js', '/static/manual.js'):
+        for path in ('/', '/upload', '/measurements', '/audio', '/static/dashboard.js', '/static/manual.js', '/static/audio.js'):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.headers['cache-control'], 'no-cache, must-revalidate')
-        self.assertIn('id="add-measurement"', self.client.get('/').text)
+        self.assertNotIn('id="add-measurement"', self.client.get('/').text)
+        self.assertIn('id="manual-form"', self.client.get('/measurements').text)

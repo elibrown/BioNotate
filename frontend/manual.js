@@ -1,7 +1,6 @@
 "use strict";
 (() => {
   const element = id => document.getElementById(id);
-  const dialog = element('manual-dialog');
   let groups = [];
   let databaseMode = false;
 
@@ -34,7 +33,6 @@
   }
 
   async function openManual() {
-    if (!dialog.open) dialog.showModal();
     element('manual-status').textContent = 'Loading crew and measurement groups…';
     element('manual-save').disabled = true;
     const now = new Date();
@@ -45,7 +43,7 @@
         fetch('/api/dashboard').then(readJSON),
       ]);
       groups = catalogue.groups;
-      databaseMode = snapshot.mode === 'live';
+      databaseMode = snapshot.mode !== 'demo';
       fillOptions(element('manual-astronaut'), snapshot.crew.map(member => [member.id, `${member.name} · ${member.id}`]));
       fillOptions(element('manual-group'), groups.map(group => [group.id, `${group.id.split('_')[0]} · ${group.label}`]));
       renderFields();
@@ -54,7 +52,7 @@
         : 'Manual entry requires database mode. Disable ASTROHEALTH_DASHBOARD=demo first.';
     } catch (error) {
       databaseMode = false;
-      element('manual-status').textContent = `Unable to load: ${error.message}. Close and reopen to retry.`;
+      element('manual-status').textContent = `Unable to load: ${error.message}. Reload this page to retry.`;
     }
   }
 
@@ -89,8 +87,7 @@
   function renderSaveState() {
     element('manual-save').disabled = !databaseMode || !groups.find(item => item.id === element('manual-group').value)?.fields.length;
   }
-  element('add-measurement').addEventListener('click', openManual);
-  element('manual-close').addEventListener('click', () => dialog.close());
+  openManual();
   element('manual-group').addEventListener('change', renderFields);
   element('manual-form').addEventListener('submit', saveManual);
 })();

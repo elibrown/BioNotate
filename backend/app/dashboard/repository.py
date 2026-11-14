@@ -116,6 +116,7 @@ class DatabaseCrewRepository:
     """
 
     mode = "live"
+    metric_sources = DB_METRICS
 
     def __init__(self, data_dir: Path | None = None):
         self.data_dir = data_dir or DATA_DIR
@@ -134,9 +135,9 @@ class DatabaseCrewRepository:
         for astronaut in db.list_astronauts():
             metrics, observed = [], []
             for key, rule in rules["metrics"].items():
-                if key not in DB_METRICS:
+                if key not in self.metric_sources:
                     continue
-                source, metric = DB_METRICS[key]
+                source, metric = self.metric_sources[key]
                 rows = db.list_measurements(astronaut_id=astronaut["id"], source=source,
                                             metric=metric, limit=HISTORY_LENGTH)
                 if rows:
@@ -168,7 +169,25 @@ class DatabaseCrewRepository:
         return members
 
 
+class SimulationDatabaseRepository(DatabaseCrewRepository):
+    """Replay only explicitly seeded synthetic readings, using fixture time."""
+
+    mode = "simulation"
+    metric_sources = {"heart_rate": ("simulation", "heart_rate"),
+                      "oxygen": ("simulation", "oxygen")}
+
+    def list_crew(self) -> list[CrewMember]:
+        members = super().list_crew()
+        self.evaluation_time = max((member.observed_at for member in members), default=None)
+        return members
+
+
 def get_repository() -> CrewRepository:
+    from app import db
+
     if os.environ.get("ASTROHEALTH_DASHBOARD") == "demo":
         return DemoCrewRepository()
+    # Prefer real model readings as soon as they exist; never relabel them as simulation.
+    if db.list_measurements(source="simulation", limit=1) and not db.list_measurements(source="cardioresp", limit=1):
+        return SimulationDatabaseRepository()
     return DatabaseCrewRepository()

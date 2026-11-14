@@ -15,7 +15,7 @@ function render() {
   const {crew, alerts} = snapshot;
   const hasReadings = crew.some(member => member.metrics.some(metric => metric.value !== null) || member.manual_measurements?.length);
   $('data-guidance').hidden = snapshot.mode !== 'live' || hasReadings;
-  $('data-guidance').textContent = 'The database has crew profiles but no readings yet. Use Add measurement to record values, or Upload video in the left sidebar for model analysis. Manual results appear in each member’s health details.';
+  $('data-guidance').textContent = 'The database has crew profiles but no readings yet. Use Manual measurements in the left sidebar to record values, or Upload video in the left sidebar for model analysis. Manual results appear in each member’s health details.';
   $('summary').innerHTML = [['Crew members',crew.length],['Healthy',crew.filter(m => m.status === 'normal').length],['Needs attention',crew.filter(m => m.status === 'alert').length],['Unknown / stale',crew.filter(m => m.status === 'unknown' || m.stale).length]].map(([label,count]) => `<div class="stat"><span>${label}</span><strong>${count}</strong></div>`).join('');
   const filtered = crew.filter(m => $('filter').value === 'all' || m.status === $('filter').value);
   $('crew').innerHTML = filtered.map(m => `<article class="card ${escapeHTML(m.status)}"><div class="card-top"><span class="avatar">${escapeHTML(m.name.split(' ').map(n => n[0]).join(''))}</span><span class="badge">${statusLabel(m.status)}</span></div><div><h3>${escapeHTML(m.name)}</h3><p class="role">${escapeHTML(m.role)} · ${escapeHTML(m.id)}</p></div>${metrics(m)}<p class="timestamp">${escapeHTML(observationLabel(m))}</p><button data-member="${escapeHTML(m.id)}">View health details ↗</button></article>`).join('') || '<p class="empty">No crew members in this view.</p>';
@@ -41,10 +41,14 @@ async function refresh() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     snapshot = await response.json(); failed = false;
     render();
-    document.querySelector('.demo').textContent = snapshot.mode === 'live'
+    document.querySelector('.demo').textContent = snapshot.mode === 'simulation'
+      ? 'SIMULATION REPLAY · Synthetic readings stored in SQLite · Status uses the sample observation time, not current time.'
+      : snapshot.mode === 'live'
       ? 'DATABASE MODE · Model and manual readings · Alert limits are illustrative; not a clinical assessment.'
       : 'DEMO REPLAY · Synthetic readings and illustrative limits; not a clinical assessment.';
-    $('connection').textContent = snapshot.mode === 'live'
+    $('connection').textContent = snapshot.mode === 'simulation'
+      ? `Simulation from SQLite · Replay time ${time(snapshot.demo_as_of)} · Not live health data`
+      : snapshot.mode === 'live'
       ? `Live data from the database · Updated ${time(snapshot.generated_at)}`
       : `Demo replay as of ${time(snapshot.demo_as_of)} · Loaded from demo files · No live sensor connection`;
   } catch (error) {
