@@ -32,3 +32,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Uploaded videos (keep the folder, not the files)
+backend/uploads/*
+!backend/uploads/.gitkeep
