@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
@@ -47,7 +49,8 @@ class DashboardTests(unittest.TestCase):
                     self.assertEqual(alerts[0]["metric"], "fatigue")
 
     def test_demo_api_joins_data(self):
-        response = TestClient(app).get("/api/dashboard")
+        with patch.dict(os.environ, {"ASTROHEALTH_DASHBOARD": "demo"}):
+            response = TestClient(app).get("/api/dashboard")
         self.assertEqual(response.status_code, 200)
         snapshot = response.json()
         self.assertTrue(snapshot["crew"])

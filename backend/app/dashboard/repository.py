@@ -1,8 +1,16 @@
-"""Replace get_repository with a database adapter when persistence is ready."""
+"""
+Where the dashboard gets crew data from.
+
+DatabaseCrewRepository (the default) reads the SQLite database (app/db.py):
+the astronauts roster and the measurements saved from uploaded videos.
+DemoCrewRepository reads the JSON demo files in data/. Set the environment
+variable ASTROHEALTH_DASHBOARD=demo to use it instead.
+"""
 
 import json
+import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Protocol
 
 from pydantic import BaseModel
@@ -84,10 +92,70 @@ class DemoCrewRepository:
         return members
 
 
-# TODO(@itamar): Replace DemoCrewRepository here with the database-backed
-# CrewRepository adapter for users, metrics, and predictions joined by astronaut ID.
-# Implement list_crew() returning CrewMember objects with latest metrics/history
-# and latest predictions. Use timezone-aware timestamps; omit evaluation_time
-# (the demo replay clock) so live freshness uses the current UTC time.
+DATA_DIR = Path(__file__).resolve().parents[3] / "data"
+
+# Dashboard metric key (in data/rules.json) -> where it is stored in the
+# measurements table: (source, metric). Rule metrics with no entry here
+# (e.g. "oxygen": no model measures it yet) are left off the dashboard.
+DB_METRICS = {
+    "heart_rate": ("cardioresp", "hr_bpm"),
+}
+
+# How many recent readings to send for the trend line.
+HISTORY_LENGTH = 60
+
+
+class DatabaseCrewRepository:
+    """
+    Crew from the `astronauts` table, metrics from the `measurements` table.
+    Labels, units and ranges still come from data/rules.json.
+    No evaluation_time: freshness is judged against the current time.
+    """
+
+    mode = "live"
+
+    def __init__(self, data_dir: Path | None = None):
+        self.data_dir = data_dir or DATA_DIR
+        self.stale_after_seconds = 300
+
+    def list_crew(self) -> list[CrewMember]:
+        from app import db   # here, not at the top, to keep imports one-way
+
+        rules = json.loads((self.data_dir / "rules.json").read_text())
+        self.stale_after_seconds = rules["stale_after_seconds"]
+        if db.roster_is_empty():
+            # First run: fill the roster from the demo profiles.
+            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text()))
+
+        members = []
+        for astronaut in db.list_astronauts():
+            metrics, observed = [], []
+            for key, rule in rules["metrics"].items():
+                if key not in DB_METRICS:
+                    continue
+                source, metric = DB_METRICS[key]
+                rows = db.list_measurements(astronaut_id=astronaut["id"], source=source,
+                                            metric=metric, limit=HISTORY_LENGTH)
+                if rows:
+                    observed.append(datetime.fromisoformat(rows[-1]["measured_at"]))
+                metrics.append(Metric(key=key, **rule,
+                                      value=rows[-1]["value"] if rows else None,
+                                      history=[r["value"] for r in rows]))
+            members.append(CrewMember(
+                id=astronaut["id"],
+                name=astronaut["name"],
+                role=astronaut["role"] or "Not on roster",
+                # Oldest of the latest readings; no data at all = very old (stale).
+                observed_at=min(observed) if observed else datetime.fromtimestamp(0, timezone.utc),
+                metrics=metrics,
+                # Risk-score predictions (rules.json "predictions") need a model
+                # that outputs scores; cardioresp doesn't, so none yet.
+                predictions=[],
+            ))
+        return members
+
+
 def get_repository() -> CrewRepository:
-    return DemoCrewRepository()
+    if os.environ.get("ASTROHEALTH_DASHBOARD") == "demo":
+        return DemoCrewRepository()
+    return DatabaseCrewRepository()
