@@ -14,7 +14,7 @@ The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data
 
 ![Target multimodal upload and prediction pipeline](docs/diagrams/system-design.svg)
 
-This is the target upload architecture. Currently `/upload` calls the existing `POST /api/video`: check filename extension → save video → select video processor → call `run_model()` → return rPPG heart-rate estimates. All processing strategies currently pass input through unchanged; video is connected, while audio/metrics endpoints and a separate `/predict` service remain planned. Database writes are not connected, so uploaded results do not update the dashboard yet. Both flows run in one FastAPI app, with sidebar links between dashboard and upload.
+This is the target upload architecture. Currently `/upload` calls the existing `POST /api/video`: check filename extension → save video → select video processor → call `run_model()` → return cardioresp estimates for heart rate (HR), respiratory rate (RR), and pulse-respiration quotient (PRQ). All processing strategies currently pass input through unchanged; video is connected, while audio/metrics endpoints and a separate `/predict` service remain planned. The model returns latest HR/RR/PRQ, timestamped measurements, and recording-level median summaries. Invalid recordings return HTTP 422. Recordings need a visible frontal face, stable lighting, minimal movement, and at least 30 seconds of usable video (60+ recommended). This experimental model is not validated for medical decisions, astronauts, or microgravity; `ok` means computation succeeded. Database writes are not connected, so uploaded results do not update the dashboard yet. Both flows run in one FastAPI app, with sidebar links between dashboard and upload.
 
 ## Run with Docker
 
@@ -47,7 +47,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000/. This starts both the API and UI. From `backend/`, run tests with `.venv/bin/python -m unittest discover -s tests -v`.
+Open http://127.0.0.1:8000/. This starts both the API and UI. From `backend/`, install pytest with `python -m pip install pytest`, then run `python -m pytest -v` for all tests.
 
 ## Demo data and status rules
 
@@ -78,13 +78,13 @@ classDiagram
 ```text
 astro-health-monitor/
 ├── README.md                       # Setup, architecture, and demo behavior
-├── Dockerfile                      # Production image, including rPPG package
+├── Dockerfile                      # Production image, including cardioresp package
 ├── .dockerignore                   # Exclude local/private files from builds
 ├── compose.yaml                    # Production configuration and uploads volume
 ├── compose.dev.yaml                # Development source mounts and reload
 ├── backend/
 │   ├── requirements.txt
-│   ├── vendor/                     # Vendored rPPG wheel
+│   ├── vendor/                     # Vendored cardioresp wheel
 │   ├── app/
 │   │   ├── main.py                 # FastAPI setup, pages, and static assets
 │   │   ├── dashboard/
@@ -93,7 +93,7 @@ astro-health-monitor/
 │   │   │   ├── dashboard.py        # Snapshot API and status/alert functions
 │   │   │   └── video.py            # Video upload and analysis endpoint
 │   │   ├── models/
-│   │   │   └── video_model.py      # rPPG heart-rate adapter
+│   │   │   └── video_model.py      # HR/RR/PRQ model adapter
 │   │   └── processing/
 │   │       ├── factory.py          # Select video/audio/metrics strategy
 │   │       └── strategies.py       # Current pass-through processors
