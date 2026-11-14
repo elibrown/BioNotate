@@ -55,8 +55,48 @@ def _cardioresp(result: dict) -> list[dict]:
     return rows
 
 
+# voicebiomarker voice_quality fields we keep, with their units.
+VOICE_QUALITY_UNITS = {
+    "f0_median_hz": "Hz",    # median pitch
+    "f0_sd_hz": "Hz",        # pitch steadiness
+    "cpp_db": "dB",          # voice clarity (higher is clearer)
+    "cpp_sd_db": "dB",       # variation of voice clarity
+    "jitter_pct": "%",       # cycle-to-cycle pitch irregularity
+    "shimmer_pct": "%",      # cycle-to-cycle loudness irregularity
+    "hnr_db": "dB",          # harmonics-to-noise ratio
+    "creak_pct": "%",        # share of creaky voice (approximate)
+}
+
+
+def _voicebiomarker(result: dict) -> list[dict]:
+    """
+    voicebiomarker model (five voice clips). Example output:
+        {"model": "voicebiomarker", "status": "ok", "reason": null,
+         "vocal_biomarker": 0.23, "quartile": 3,
+         "voice_quality": {"f0_median_hz": 208.9, "cpp_db": 15.11, ...},
+         "net_speech_s": 31.4, "windows_used": 2,
+         "model_version": "coswara-cm-0.1.0"}
+
+    One value per recording, so one row per metric and no offset_s.
+    A "rejected" recording has no values, so it gives no rows.
+    Any voice_quality value can be null; those are skipped.
+    """
+    if result.get("status") != "ok":
+        return []
+    rows = []
+    if result.get("vocal_biomarker") is not None:
+        rows.append({"metric": "vocal_biomarker", "value": result["vocal_biomarker"],
+                     "unit": "z-score"})
+    for metric, value in (result.get("voice_quality") or {}).items():
+        if value is not None and metric in VOICE_QUALITY_UNITS:
+            rows.append({"metric": metric, "value": value,
+                         "unit": VOICE_QUALITY_UNITS[metric]})
+    return rows
+
+
 EXTRACTORS = {
     "cardioresp": _cardioresp,
+    "voicebiomarker": _voicebiomarker,
 }
 
 

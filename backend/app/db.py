@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS predictions (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     astronaut_id       TEXT,                 -- may be NULL (optional on upload)
     created_at         TEXT    NOT NULL,     -- UTC, ISO 8601
-    video_file         TEXT,                 -- file name in backend/uploads/
+    video_file         TEXT,                 -- uploaded file name in backend/uploads/ (video or audio)
     model              TEXT,                 -- result["model"], e.g. "cardioresp"
     model_version      TEXT,                 -- result["model_version"]
     status             TEXT,                 -- result["status"], e.g. "ok"

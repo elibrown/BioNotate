@@ -31,9 +31,16 @@ class Prediction(BaseModel):
     target: str
     label: str
     score: float
-    threshold: float
+    # None = no fixed alert level for this score (e.g. vocal_biomarker,
+    # which alerts on a rising trend instead: rules.json "rising").
+    threshold: float | None = None
     observed_at: datetime
     model_version: str
+    # Set for scores that aren't 0-1 risks (e.g. "z-score"): the dashboard
+    # then shows the raw value with this unit instead of a percentage.
+    unit: str | None = None
+    # Earlier scores, oldest first, ending with this one (for trend rules).
+    history: list[float] = []
 
 
 class CrewMember(BaseModel):
@@ -66,6 +73,8 @@ class DemoCrewRepository:
         predictions = self.read("predictions")
         rules = self.read("rules")
         self.stale_after_seconds = rules["stale_after_seconds"]
+        self.combined_rules = rules.get("combined", {})
+        self.rising_rules = rules.get("rising", {})
         parse_time = lambda value: datetime.fromisoformat(value.replace("Z", "+00:00"))
         # Replay the fixed demo at its latest observation, rather than claiming live data.
         times = [parse_time(row["observed_at"]) for row in metrics + predictions]
@@ -101,6 +110,13 @@ DB_METRICS = {
     "heart_rate": ("cardioresp", "hr_bpm"),
 }
 
+# Same idea for model scores shown under "Model predictions": key in
+# rules.json "predictions" -> (source, metric) in the measurements table.
+# The latest stored value is the score; recent values go in its history.
+DB_PREDICTIONS = {
+    "vocal_biomarker": ("voicebiomarker", "vocal_biomarker"),
+}
+
 # How many recent readings to send for the trend line.
 HISTORY_LENGTH = 60
 
@@ -123,6 +139,8 @@ class DatabaseCrewRepository:
 
         rules = json.loads((self.data_dir / "rules.json").read_text())
         self.stale_after_seconds = rules["stale_after_seconds"]
+        self.combined_rules = rules.get("combined", {})
+        self.rising_rules = rules.get("rising", {})
         if db.roster_is_empty():
             # First run: fill the roster from the demo profiles.
             db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text()))
@@ -148,11 +166,34 @@ class DatabaseCrewRepository:
                 # Oldest of the latest readings; no data at all = very old (stale).
                 observed_at=min(observed) if observed else datetime.fromtimestamp(0, timezone.utc),
                 metrics=metrics,
-                # Risk-score predictions (rules.json "predictions") need a model
-                # that outputs scores; cardioresp doesn't, so none yet.
-                predictions=[],
+                predictions=self._predictions(db, astronaut["id"], rules["predictions"]),
             ))
         return members
+
+    @staticmethod
+    def _predictions(db, astronaut_id: str, rules: dict) -> list[Prediction]:
+        """Latest stored score (plus recent history) for each rules.json prediction."""
+        results = []
+        for key, rule in rules.items():
+            if key not in DB_PREDICTIONS:
+                continue
+            source, metric = DB_PREDICTIONS[key]
+            rows = db.list_measurements(astronaut_id=astronaut_id, source=source,
+                                        metric=metric, limit=HISTORY_LENGTH)
+            if not rows:
+                continue
+            latest = rows[-1]
+            run = db.get_prediction(latest["prediction_id"]) if latest["prediction_id"] else None
+            results.append(Prediction(
+                id=str(latest["prediction_id"] or latest["id"]),
+                target=key,
+                score=latest["value"],
+                observed_at=datetime.fromisoformat(latest["measured_at"]),
+                model_version=(run or {}).get("model_version") or source,
+                history=[r["value"] for r in rows],
+                **rule,
+            ))
+        return results
 
 
 def get_repository() -> CrewRepository:
