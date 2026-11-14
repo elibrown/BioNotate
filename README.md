@@ -2,284 +2,119 @@
 
 Astronaut health monitoring and early risk detection platform for NASA Space Apps Challenge 2026.
 
-## Current implementation
+## System design
 
-The skeleton provides a FastAPI backend and a plain HTML upload page. The current flow is:
+### Dashboard
 
-```text
-Browser → POST /api/video → save file → video processor → run_model() → JSON response
-```
+![Dashboard read path and planned database integration](docs/diagrams/dashboard-design.svg)
 
-- `GET /` serves the upload page.
-- `GET /api/health` returns service status and version.
-- `GET /docs` provides interactive API documentation.
-- `POST /api/video` accepts multipart `file` and optional `astronaut_id`. It checks the filename extension (`.mp4`, `.mov`, `.avi`, `.mkv`, `.webm`), saves the file under a generated name, and calls the placeholder model synchronously.
-- The response includes `astronaut_id`, `filename`, `saved_as`, and `result`. The placeholder returns a fixed `normal` status, zero confidence, and video size; this is a dummy result, not a health assessment.
+The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. Today the repository joins JSON demo files by astronaut ID. Itamar will replace it with a database adapter for users, metrics, and predictions; the handoff is marked `TODO(@itamar)` in `repository.py`.
 
-There is no frame extraction, face processing, separate `/predict` endpoint, or prediction database yet. Upload validation currently checks extensions only; content validation, size limits, retention, and retry handling remain to be implemented.
+### Video / data upload
 
-## Processing skeleton: factory and strategies
+![Target multimodal upload and prediction pipeline](docs/diagrams/system-design.svg)
 
-The factory selects a processor; the processor handles transformation for that data type.
+This is the target upload architecture. Currently `/upload` calls the existing `POST /api/video`: check filename extension → save video → select video processor → call `run_model()` → return cardioresp estimates for heart rate (HR), respiratory rate (RR), and pulse-respiration quotient (PRQ). All processing strategies currently pass input through unchanged; video is connected, while audio/metrics endpoints and a separate `/predict` service remain planned. The model returns latest HR/RR/PRQ, timestamped measurements, and recording-level median summaries. Invalid recordings return HTTP 422. Recordings need a visible frontal face, stable lighting, minimal movement, and at least 30 seconds of usable video (60+ recommended). This experimental model is not validated for medical decisions, astronauts, or microgravity; `ok` means computation succeeded. Database writes are not connected, so uploaded results do not update the dashboard yet. Both flows run in one FastAPI app, with sidebar links between dashboard and upload.
 
-```text
-Caller chooses data type
-          ↓
-ProcessorFactory.get_processor("video" / "audio" / "metrics")
-          ↓
-VideoProcessor / AudioProcessor / MetricsProcessor
-          ↓
-processor.process(data)
-```
+## Run with Docker
 
-All three processors currently return their input unchanged. They provide a place to add transformations once we choose models. There are no request wrappers, data-type enums, injected adapters, or processing-specific validation yet.
-
-**Video is connected:** `POST /api/video` saves the uploaded file, selects the video processor, passes the saved path through it, then passes its output to the existing placeholder `run_model()`. The response format is unchanged. Audio and metrics have skeleton processors but no endpoints or model integration yet.
-
-```python
-from app.processing import ProcessorFactory
-
-processor = ProcessorFactory().get_processor("metrics")
-result = processor.process({"heart_rate": 72})
-# For now: {"heart_rate": 72}
-```
-
-Unsupported data types raise `ValueError`. The input and output formats of each processor can be defined when its real transformation is implemented. Video currently accepts and returns a saved file path because that is what the existing model expects.
-
-### Food for thought: separate endpoints
-
-We could eventually expose `/api/video`, `/api/audio`, and `/api/metrics`. Each endpoint would know the data type and select its processor internally. The client would not need to send a `modality` or `data_type` field. Only `/api/video` exists today; the others are ideas for future integration.
-
-From `backend/`, run the processing tests:
+From the repository root with Docker running:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -p test_processing.py -v
+# Development: Python reload, mounted frontend and demo data
+docker compose -f compose.yaml -f compose.dev.yaml up --build
+
+# Production: source and demo files baked into the image, no reload
+docker compose up --build -d
 ```
 
-To debug, set breakpoints in the factory or processors, then right-click `backend/tests/test_processing.py` in PyCharm and choose **Debug**. The same file serves testing and debugging.
+Open http://localhost:8000/ for the dashboard, `/upload` for video upload, or `/docs` for the API. No separate frontend server or build is needed. In development, Python changes reload automatically; refresh the browser after HTML/CSS/JS edits. Demo JSON changes appear on the next dashboard fetch (every 15 seconds). Rebuild after dependency changes; production requires rebuilding for all source/data changes.
 
-## Running the backend
+Use one mode at a time. Stop development with Ctrl+C; run `docker compose down` to remove containers. Uploads persist in a named volume; `down -v` deletes them. View logs with `docker compose logs -f app`. The image runs as a non-root user with a `/api/health` health check.
 
+If port 8000 is occupied, prefix the command with `APP_PORT=8001` and open http://localhost:8001/. PowerShell: set `$env:APP_PORT = "8001"` first. Inspect configuration with `docker compose config` (include both `-f` flags for development).
 
-You need Python 3.10 or newer. From the repo folder:
+## Run without Docker
+
+Python 3.11+ is required. From the repository root:
 
 ```bash
 cd backend
 python -m venv .venv
-# Windows:      .venv\Scripts\activate
-# Linux/macOS:  source .venv/bin/activate
+# Linux/macOS: source .venv/bin/activate
+# Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Then open http://127.0.0.1:8000 for the upload page, or
-http://127.0.0.1:8000/docs for the interactive API docs.
+Open http://127.0.0.1:8000/. This starts both the API and UI. From `backend/`, install pytest with `python -m pip install pytest`, then run `python -m pytest -v` for all tests.
 
-### Video upload: `POST /api/video`
+## Demo data and status rules
 
-Send a video as form data. `astronaut_id` is optional.
+`data/astronauts.json` contains profiles, `metrics.json` contains timestamped readings/history, and `predictions.json` contains synthetic model scores. Records join by astronaut ID. Files reload on each API request; `rules.json` configures inclusive metric ranges, prediction thresholds, and freshness duration.
 
-```bash
-curl -F "file=@clip.mp4" -F "astronaut_id=A-07" http://127.0.0.1:8000/api/video
+- **Needs attention:** a metric is outside its range or a prediction meets/exceeds its threshold.
+- **Unknown:** no alert, but required metrics are missing or observations are stale.
+- **Healthy:** required metrics are fresh/present and no rule triggers. These are illustrative demo rules, not a clinical assessment.
+
+The demo clock is the latest fixture timestamp. Member details show trends, predictions, and alert reasons. Alerts are calculated on request; saved alert history and external notifications remain future work. Astronaut IDs are provided by demo records or entered manually on upload; automatic identity recognition is not implemented.
+
+## Dashboard class relationships
+
+```mermaid
+classDiagram
+    class CrewRepository {
+        <<interface>>
+        list_crew()
+    }
+    CrewRepository <|.. DemoCrewRepository
+    CrewRepository --> CrewMember : returns
+    CrewMember "1" *-- "0..*" Metric
+    CrewMember "1" *-- "0..*" Prediction
 ```
-
-The video is saved in `backend/uploads/` (not committed to git) and the
-model result comes straight back as JSON. The model is a placeholder for now:
-replace `run_model()` in `backend/app/models/video_model.py` with the real one.
-
-
-## Implementation plan
-
-The target pipeline accepts video, audio, or metrics, selects a processing strategy, prepares model input, and requests a prediction from the model service. The model and its preprocessing requirements are still being evaluated. The diagram below describes the target architecture. The current skeleton connects video upload to a pass-through video processor and a placeholder model in one FastAPI backend. Audio and metrics processors are skeletons; real transformations, the separate prediction endpoint, and the database are not implemented.
-
-### System design
-
-![System design: client data passes through ingestion and modality-specific transformation to model prediction, with future database persistence.](docs/diagrams/system-design.svg)
-
-1. **Client:** submits video, audio, or metrics. The current UI/API accepts video only; audio and metrics ingestion are future additions.
-2. **Ingestion service:** determines the data type, potentially from separate endpoints, validates the supported format and size, and assigns a request ID that follows the data through the pipeline.
-3. **Transformer:** uses the factory to select a video, audio, or metrics strategy. Each strategy will prepare model input; currently all three pass their input through unchanged. Possible steps include frame extraction, face detection or recognition, cropping, and normalization. The exact steps and output format depend on model selection; face recognition is not yet a requirement.
-4. **Model service:** exposes a proposed `POST /predict` endpoint, validates the transformed input, runs inference, and returns a prediction associated with the request ID.
-5. **Prediction database (future):** the model service will persist prediction results and relevant metadata. The database technology and schema remain undecided.
-
-The transformer should isolate model-specific preprocessing from ingestion. Its output contract must be agreed with the model service once a model is chosen. These are logical boundaries; separate deployment of each component is still an open decision.
-
-### Decisions to resolve before implementation
-
-- Select the model, prediction targets, and required input/output schemas.
-- Choose video upload versus streaming, supported formats, duration and size limits.
-- Decide whether ingestion passes video bytes or a reference to stored video, and define raw-video retention and access rules.
-- Choose synchronous processing versus asynchronous jobs. For jobs, define status tracking and how clients retrieve results.
-- Define the prediction request/response contract, including request ID, model version, and error responses.
-- Define timeout and retry behavior, including how duplicate requests avoid duplicate predictions or database records.
-- Choose the prediction database and define the persistence schema and failure behavior.
-
-### Suggested implementation order
-
-1. Agree on input/output formats for each data type and decide whether to add separate endpoints.
-2. Extend the connected video processing path and add audio/metrics ingestion when needed.
-3. Select a model and implement its preprocessing adapter and inference.
-4. Add prediction persistence, then verify the full flow and failure handling with a representative video fixture.
 
 ## Repository structure
 
 ```text
 astro-health-monitor/
-├── .gitignore
-├── README.md
+├── README.md                       # Setup, architecture, and demo behavior
+├── Dockerfile                      # Production image, including cardioresp package
+├── .dockerignore                   # Exclude local/private files from builds
+├── compose.yaml                    # Production configuration and uploads volume
+├── compose.dev.yaml                # Development source mounts and reload
 ├── backend/
-│   ├── requirements.txt              # Python dependency pins
+│   ├── requirements.txt
+│   ├── vendor/                     # Vendored cardioresp wheel
 │   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                   # FastAPI app, health route, upload page
+│   │   ├── main.py                 # FastAPI setup, pages, and static assets
+│   │   ├── dashboard/
+│   │   │   └── repository.py       # Demo data models/reader; database handoff
 │   │   ├── routers/
-│   │   │   ├── __init__.py
-│   │   │   └── video.py              # POST /api/video and file storage
+│   │   │   ├── dashboard.py        # Snapshot API and status/alert functions
+│   │   │   └── video.py            # Video upload and analysis endpoint
 │   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   └── video_model.py        # Placeholder run_model()
-│   │   └── processing/              # Video connected to upload route
-│   │       ├── __init__.py
-│   │       ├── factory.py            # Select processor by data type
-│   │       └── strategies.py         # Base class and three pass-through processors
+│   │   │   └── video_model.py      # HR/RR/PRQ model adapter
+│   │   └── processing/
+│   │       ├── factory.py          # Select video/audio/metrics strategy
+│   │       └── strategies.py       # Current pass-through processors
 │   ├── tests/
-│   │   └── test_processing.py
-│   └── uploads/
-│       └── .gitkeep                  # Uploaded files are ignored
+│   │   ├── test_dashboard.py
+│   │   ├── test_processing.py
+│   │   └── test_video_model.py
+│   └── uploads/                    # Runtime videos, ignored by Git
 ├── frontend/
-│   ├── .gitkeep
-│   └── index.html                    # Browser upload form
+│   ├── index.html                  # Crew dashboard and detail dialog
+│   ├── dashboard.css               # Shared theme, sidebar, responsive layouts
+│   ├── dashboard.js                # Polling, rendering, filters, member details
+│   └── upload.html                 # Video form and analysis results
 ├── data/
-│   └── sample/
-│       └── .gitkeep                  # Placeholder for sample data
-└── docs/
-    ├── .gitkeep
-    └── diagrams/
-        └── system-design.svg         # Target architecture
+│   ├── astronauts.json
+│   ├── metrics.json
+│   ├── predictions.json
+│   └── rules.json
+└── docs/diagrams/
+    ├── dashboard-design.svg        # Dashboard read flow
+    └── system-design.svg           # Target upload/prediction flow
 ```
 
-Keep source files, `requirements.txt`, Python package markers (`__init__.py`), and the architecture diagram in Git. `.gitkeep` files preserve otherwise empty directories; they can be removed once those directories contain tracked files.
-
-Local PyCharm settings (`.idea/`), virtual environments (`.venv/`), Python caches, environment secrets, and uploaded videos are ignored by the root `.gitignore`. Ignoring a file does not untrack it if it has already been committed or staged.
-
-Future transformer and model-service boundaries should grow from this skeleton. Their runtime, deployment layout, prediction contract, and database remain undecided.
-
-
-## Cardiorespiratory Monitoring
-
-AstroHealth integrates `cardioresp` v0.2.0 to estimate
-cardiorespiratory measurements from prerecorded face videos.
-
-### Supported measurements
-
-- **Heart Rate (HR):** Estimated beats per minute.
-- **Respiratory Rate (RR):** Estimated breaths per minute.
-- **Pulse-Respiration Quotient (PRQ):** HR divided by RR.
-
-All three measurements are derived from the same analysis
-window, avoiding timestamp alignment between separate models.
-
-### Model installation
-
-Requirements:
-- Python 3.11 or newer
-- A supported OpenCV video decoder
-
-The model wheel is included in `backend/vendor/`.
-
-From the `backend` directory:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-The installation includes cardioresp, NumPy, SciPy,
-scikit-learn and OpenCV.
-
-### Running the backend
-
-From `backend/`:
-
-```bash
-python -m uvicorn app.main:app --reload
-```
-
-Open http://127.0.0.1:8000/ to upload a video.
-
-### Video upload API
-
-**Endpoint:** `POST /api/video`
-
-**Content type:** `multipart/form-data`
-
-Parameters:
-- `file` (required): Video recording
-- `astronaut_id` (optional): Identifier for the astronaut
-
-The backend saves the recording, selects VideoProcessor
-through ProcessorFactory, and calls the cardioresp model.
-
-### Recording requirements
-
-- Duration: At least 30 seconds; 60+ seconds recommended
-- Frame rate: At least 15 FPS; 30 FPS recommended
-- Resolution: At least 640x480 recommended
-- One seated person facing the camera
-- Stable lighting and minimal movement
-
-The first 30 seconds are used for warm-up.
-
-### API response
-
-The response contains:
-
-- `model`: cardioresp
-- `model_version`: 0.2.0
-- `status`: Status of the latest reading
-- `hr_bpm`: Latest heart-rate estimate
-- `respi_rate`: Latest respiratory-rate estimate
-- `prq`: Latest HR/RR quotient
-- `summary`: Recording-level median estimates
-- `measurements`: Timestamped readings and their statuses
-
-The `summary` contains median HR and RR estimates from
-successful readings and calculates PRQ from those medians.
-It also reports the number of valid readings.
-
-Reading statuses:
-- `warming_up`: Not enough data collected yet
-- `ok`: HR, RR and PRQ produced
-- `partial`: HR available, RR/PRQ unavailable
-- `no_face`: Face detection unsuccessful
-
-Invalid recordings return HTTP 422 with a descriptive error.
-
-### Running tests
-
-From `backend/`:
-
-```bash
-python -m pip install pytest
-python -m pytest -v
-```
-
-### Important accuracy limitations
-
-This is an experimental prototype, not a medical device.
-
-The model developer's UBFC-rPPG evaluation reported:
-- HR MAE: 0.95 BPM on DATASET_1
-- HR MAE: 2.73 BPM on DATASET_2
-- RR MAE: 3.65 breaths/min on DATASET_1
-
-Respiratory-rate estimation did not outperform a
-constant-mean baseline (3.53 breaths/min MAE).
-Consequently, RR and PRQ are not sufficiently validated
-for medical decisions.
-
-The model has not been validated on astronauts, in
-microgravity, or under International Space Station
-lighting conditions.
-
-A status of `ok` indicates successful computation,
-not verified clinical accuracy.
+Python package markers and empty-directory placeholders are omitted from the tree. Next decisions: model/preprocessing contracts, ingestion limits and retention, synchronous versus asynchronous prediction, and database persistence/retry behavior.

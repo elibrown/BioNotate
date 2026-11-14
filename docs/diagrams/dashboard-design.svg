@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="540" viewBox="0 0 1120 540" role="img" aria-labelledby="title desc">
+<title id="title">Dashboard system design</title>
+<desc id="desc">The dashboard UI polls the Dashboard API every 15 seconds. The API uses the crew repository to read demo astronauts, metrics, predictions and rules, then evaluates status and alerts. A database adapter for users, metrics and predictions is planned. Solid arrows show existing calls; dashed arrows show planned database integration.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#475569"/></marker></defs>
+<rect width="1120" height="540" rx="16" fill="#f8fafc"/>
+<g font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#334155">
+<text x="560" y="40" font-size="24" font-weight="bold" fill="#0f172a">Dashboard · read data → evaluate rules → display crew status</text>
+<text x="560" y="69" font-size="14">Current implementation: one FastAPI server serves the UI and API</text>
+<rect x="30" y="130" width="290" height="125" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+<text x="175" y="162" font-size="19" font-weight="bold">Dashboard UI /</text>
+<text x="175" y="189" font-size="14">Crew cards · details · trends</text>
+<text x="175" y="212" font-size="14">Status and member alerts</text>
+<text x="175" y="235" font-size="14">dashboard.js polls every 15s</text>
+<rect x="415" y="130" width="290" height="125" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="560" y="162" font-size="19" font-weight="bold">Dashboard API</text>
+<text x="560" y="189" font-size="14">GET /api/dashboard</text>
+<text x="560" y="212" font-size="14">Evaluate ranges, scores, freshness</text>
+<text x="560" y="235" font-size="14">Return crew snapshot + alerts</text>
+<rect x="800" y="130" width="290" height="125" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="945" y="162" font-size="19" font-weight="bold">Crew data access</text>
+<text x="945" y="189" font-size="14">CrewRepository.list_crew()</text>
+<text x="945" y="212" font-size="14">Current: DemoCrewRepository</text>
+<text x="945" y="235" font-size="14">Future: database implementation</text>
+<rect x="415" y="335" width="290" height="125" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+<text x="560" y="367" font-size="19" font-weight="bold">Demo JSON files</text>
+<text x="560" y="394" font-size="14">astronauts.json · metrics.json</text>
+<text x="560" y="417" font-size="14">predictions.json · rules.json</text>
+<text x="560" y="440" font-size="14">Join records by astronaut ID</text>
+<rect x="800" y="335" width="290" height="125" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="945" y="367" font-size="19" font-weight="bold">Database · planned</text>
+<text x="945" y="394" font-size="14">users · metrics · predictions</text>
+<text x="945" y="417" font-size="14">Adapter handoff: TODO(@itamar)</text>
+<text x="945" y="440" font-size="14">Tables / schema handled by Itamar</text>
+<path d="M320 193H415" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="367" y="115" font-size="12">Request / response</text>
+<path d="M705 193H800" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="752" y="115" font-size="12">Read crew</text>
+<path d="M870 255V295H560V335" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="670" y="285" font-size="12">Read demo files</text>
+<path d="M1010 255V335" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)" stroke-dasharray="7 5"/>
+<text x="1055" y="301" font-size="12">Future read</text>
+<text x="560" y="511" font-size="14">Solid: implemented calls · dashed: planned integration · uploaded video results are not connected yet</text></g></svg>

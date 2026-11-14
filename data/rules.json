@@ -1,0 +1,23 @@
+{
+  "stale_after_seconds": 300,
+  "metrics": {
+    "heart_rate": {
+      "label": "Heart rate",
+      "unit": "bpm",
+      "lower": 50,
+      "upper": 100
+    },
+    "oxygen": {
+      "label": "Oxygen saturation",
+      "unit": "%",
+      "lower": 95,
+      "upper": 100
+    }
+  },
+  "predictions": {
+    "fatigue_risk": {
+      "label": "Fatigue risk",
+      "threshold": 0.7
+    }
+  }
+}

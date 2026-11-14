@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AstroHealth · Upload video</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+<aside class="sidebar" aria-label="AstroHealth navigation">
+  <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></a>
+  <nav class="rail-nav" aria-label="Main navigation">
+    <a class="rail-link " href="/" aria-label="Crew dashboard" data-tooltip="Crew dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m1-15a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-2-4"/></svg></a>
+    <a class="rail-link " href="/upload" aria-label="Upload video" data-tooltip="Upload video" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3"/></svg></a>
+  </nav>
+  <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
+</aside>
+<main class="upload-page">
+  <p class="eyebrow">VIDEO ANALYSIS</p>
+  <h1>Upload video</h1>
+  <div class="card upload-card">
+    <p>Choose a video with a visible face and press <b>Upload</b>. Cardiorespiratory analysis needs at least 30 seconds of usable footage and returns HR, RR, and PRQ. The result appears below.</p>
+    <label>Astronaut ID (optional)<br><input type="text" id="astronaut_id"></label><br>
+    <label for="video">Video file</label>
+    <input type="file" id="video" accept="video/*">
+    <br>
+    <button id="upload">Upload</button>
+    <pre id="result" role="status">No result yet.</pre>
+  </div>
+
+</main>
+  <script>
+    const button = document.getElementById("upload");
+    const output = document.getElementById("result");
+
+    button.addEventListener("click", async () => {
+      const file = document.getElementById("video").files[0];
+      if (!file) { output.textContent = "Please choose a video first."; return; }
+
+      const form = new FormData();
+      form.append("file", file);
+      const astronautId = document.getElementById("astronaut_id").value.trim();
+      if (astronautId) form.append("astronaut_id", astronautId);
+
+      button.disabled = true;
+      output.textContent = "Uploading and analysing...";
+      try {
+        const response = await fetch("/api/video", { method: "POST", body: form });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `Upload failed (HTTP ${response.status})`);
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        output.textContent = "Something went wrong: " + err;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
