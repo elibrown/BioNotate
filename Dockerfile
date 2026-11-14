@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app/backend
 COPY backend/requirements.txt ./requirements.txt
+COPY backend/vendor ./vendor
 RUN python -m pip install -r requirements.txt
 
 RUN groupadd --gid 10001 astro \

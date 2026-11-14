@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="690" viewBox="0 0 1200 690" role="img" aria-labelledby="title desc">
 <title id="title">AstroHealth UI and processing architecture</title>
-<desc id="desc">FastAPI serves a browser dashboard and upload form. The dashboard polls the Dashboard API, which reads a crew repository and evaluates alerts. The repository currently uses synthetic data; database reads are planned. Video uploads pass through ingestion and a processing factory to a placeholder model. Real inference and database writes are planned. Solid arrows are implemented calls; dashed arrows are planned integrations.</desc>
+<desc id="desc">FastAPI serves a browser dashboard and upload form. The dashboard polls the Dashboard API, which reads a crew repository and evaluates alerts. The repository currently uses synthetic data; database reads are planned. Video uploads pass through ingestion and a processing factory to a rPPG heart-rate model. Database writes are planned. Solid arrows are implemented calls; dashed arrows are planned integrations.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#475569"/></marker></defs>
 <rect width="1200" height="690" rx="16" fill="#f8fafc"/>
 <g font-family="Arial, Helvetica, sans-serif" fill="#334155" text-anchor="middle">
@@ -50,9 +50,9 @@
 <path d="M590 460H660" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
 <rect x="950" y="400" width="220" height="125" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
 <text x="1060" y="433" font-size="19" font-weight="bold" fill="#4c1d95">Prediction stage</text>
-<text x="1060" y="461" font-size="14">Current: placeholder run_model()</text>
-<text x="1060" y="487" font-size="14">Planned: model + POST /predict</text>
-<text x="1060" y="510" font-size="13">Real inference not implemented</text>
+<text x="1060" y="461" font-size="14">Current: rPPG run_model()</text>
+<text x="1060" y="487" font-size="14">Planned: separate POST /predict</text>
+<text x="1060" y="510" font-size="13">Video heart-rate estimation</text>
 <path d="M880 460H950" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
 <path d="M1060 400V315" stroke="#475569" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
 <text x="1060" y="358" font-size="12">Planned: persist results</text>

@@ -6,7 +6,7 @@ Astronaut health monitoring and early risk detection platform for NASA Space App
 
 ![Target processing pipeline](docs/diagrams/system-design.svg)
 
-Today, FastAPI serves the dashboard and API together. Video upload uses a pass-through processor and placeholder model. The dashboard reads demo JSON files; Itamar is handling database work for users, metrics, and predictions. Real preprocessing, inference, and database integration remain planned.
+Today, FastAPI serves the dashboard and API together. Video upload uses a pass-through processor and an rPPG heart-rate estimator. The dashboard reads demo JSON files; Itamar is handling database work for users, metrics, and predictions. Model-specific preprocessing and database integration remain planned.
 
 ## Run with Docker
 
@@ -28,7 +28,7 @@ If port 8000 is occupied, prefix the command with `APP_PORT=8001` and open http:
 
 ## Run without Docker
 
-Python 3.10+ is required. From the repository root:
+Python 3.11+ is required. From the repository root:
 
 ```bash
 cd backend
