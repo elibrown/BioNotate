@@ -7,7 +7,7 @@ Astronaut health monitoring and early risk detection platform for NASA Space App
 The skeleton provides a FastAPI backend and a plain HTML upload page. The current flow is:
 
 ```text
-Browser → POST /api/video → backend/uploads/ → run_model(saved_path) → JSON response
+Browser → POST /api/video → save file → video processor → run_model() → JSON response
 ```
 
 - `GET /` serves the upload page.
@@ -17,6 +17,46 @@ Browser → POST /api/video → backend/uploads/ → run_model(saved_path) → J
 - The response includes `astronaut_id`, `filename`, `saved_as`, and `result`. The placeholder returns a fixed `normal` status, zero confidence, and video size; this is a dummy result, not a health assessment.
 
 There is no frame extraction, face processing, separate `/predict` endpoint, or prediction database yet. Upload validation currently checks extensions only; content validation, size limits, retention, and retry handling remain to be implemented.
+
+## Processing skeleton: factory and strategies
+
+The factory selects a processor; the processor handles transformation for that data type.
+
+```text
+Caller chooses data type
+          ↓
+ProcessorFactory.get_processor("video" / "audio" / "metrics")
+          ↓
+VideoProcessor / AudioProcessor / MetricsProcessor
+          ↓
+processor.process(data)
+```
+
+All three processors currently return their input unchanged. They provide a place to add transformations once we choose models. There are no request wrappers, data-type enums, injected adapters, or processing-specific validation yet.
+
+**Video is connected:** `POST /api/video` saves the uploaded file, selects the video processor, passes the saved path through it, then passes its output to the existing placeholder `run_model()`. The response format is unchanged. Audio and metrics have skeleton processors but no endpoints or model integration yet.
+
+```python
+from app.processing import ProcessorFactory
+
+processor = ProcessorFactory().get_processor("metrics")
+result = processor.process({"heart_rate": 72})
+# For now: {"heart_rate": 72}
+```
+
+Unsupported data types raise `ValueError`. The input and output formats of each processor can be defined when its real transformation is implemented. Video currently accepts and returns a saved file path because that is what the existing model expects.
+
+### Food for thought: separate endpoints
+
+We could eventually expose `/api/video`, `/api/audio`, and `/api/metrics`. Each endpoint would know the data type and select its processor internally. The client would not need to send a `modality` or `data_type` field. Only `/api/video` exists today; the others are ideas for future integration.
+
+From `backend/`, run the processing tests:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -p test_processing.py -v
+```
+
+To debug, set breakpoints in the factory or processors, then right-click `backend/tests/test_processing.py` in PyCharm and choose **Debug**. The same file serves testing and debugging.
 
 ## Running the backend
 
@@ -50,15 +90,15 @@ replace `run_model()` in `backend/app/models/video_model.py` with the real one.
 
 ## Implementation plan
 
-The initial pipeline accepts video from a client, transforms it into the input required by a model, and requests a prediction from the model service. The model and its preprocessing requirements are still being evaluated. The diagram below describes the target architecture. The current skeleton implements video upload and a direct call to a placeholder model in one FastAPI backend; the transformer, separate prediction endpoint, and database are not implemented.
+The target pipeline accepts video, audio, or metrics, selects a processing strategy, prepares model input, and requests a prediction from the model service. The model and its preprocessing requirements are still being evaluated. The diagram below describes the target architecture. The current skeleton connects video upload to a pass-through video processor and a placeholder model in one FastAPI backend. Audio and metrics processors are skeletons; real transformations, the separate prediction endpoint, and the database are not implemented.
 
 ### System design
 
-![System design: client video passes through ingestion and transformation to model prediction, with future database persistence.](docs/diagrams/system-design.svg)
+![System design: client data passes through ingestion and modality-specific transformation to model prediction, with future database persistence.](docs/diagrams/system-design.svg)
 
-1. **Client:** captures or selects a video and submits it to the ingestion service. Video is the only input type in the initial scope.
-2. **Ingestion service:** receives the video, validates the supported format and size, and assigns a request ID that follows the video through the pipeline.
-3. **Transformer:** prepares the video for the selected model. Possible steps include frame extraction, face detection or recognition, cropping, and normalization. The exact steps and output format depend on model selection; face recognition is not yet a requirement.
+1. **Client:** submits video, audio, or metrics. The current UI/API accepts video only; audio and metrics ingestion are future additions.
+2. **Ingestion service:** determines the data type, potentially from separate endpoints, validates the supported format and size, and assigns a request ID that follows the data through the pipeline.
+3. **Transformer:** uses the factory to select a video, audio, or metrics strategy. Each strategy will prepare model input; currently all three pass their input through unchanged. Possible steps include frame extraction, face detection or recognition, cropping, and normalization. The exact steps and output format depend on model selection; face recognition is not yet a requirement.
 4. **Model service:** exposes a proposed `POST /predict` endpoint, validates the transformed input, runs inference, and returns a prediction associated with the request ID.
 5. **Prediction database (future):** the model service will persist prediction results and relevant metadata. The database technology and schema remain undecided.
 
@@ -76,8 +116,8 @@ The transformer should isolate model-specific preprocessing from ingestion. Its 
 
 ### Suggested implementation order
 
-1. Agree on an initial video submission contract and prediction contract using sample payloads.
-2. Build an ingestion-to-transformer-to-model-service path with a placeholder transformer and stub predictions to validate integration.
+1. Agree on input/output formats for each data type and decide whether to add separate endpoints.
+2. Extend the connected video processing path and add audio/metrics ingestion when needed.
 3. Select a model and implement its preprocessing adapter and inference.
 4. Add prediction persistence, then verify the full flow and failure handling with a representative video fixture.
 
@@ -95,9 +135,15 @@ astro-health-monitor/
 │   │   ├── routers/
 │   │   │   ├── __init__.py
 │   │   │   └── video.py              # POST /api/video and file storage
-│   │   └── models/
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   └── video_model.py        # Placeholder run_model()
+│   │   └── processing/              # Video connected to upload route
 │   │       ├── __init__.py
-│   │       └── video_model.py        # Placeholder run_model()
+│   │       ├── factory.py            # Select processor by data type
+│   │       └── strategies.py         # Base class and three pass-through processors
+│   ├── tests/
+│   │   └── test_processing.py
 │   └── uploads/
 │       └── .gitkeep                  # Uploaded files are ignored
 ├── frontend/
