@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.dashboard.repository import CrewMember, Metric, Prediction
 from app.main import app
-from app.routers.dashboard import evaluate_member
+from app.routers.dashboard import combined_alerts, evaluate_member
 
 NOW = datetime(2026, 11, 14, tzinfo=timezone.utc)
 
@@ -47,6 +47,14 @@ class DashboardTests(unittest.TestCase):
                 self.assertEqual(result["status"], expected)
                 if alerts:
                     self.assertEqual(alerts[0]["metric"], "fatigue")
+
+    def test_combined_rule_needs_all_conditions(self):
+        rules = {"both": {"label": "Both high", "all": [
+            {"key": "heart", "above": 100}, {"key": "fatigue", "above": 0.5}]}}
+        self.assertEqual(combined_alerts(member(value=110, score=0.6), rules)[0]["metric"], "both")
+        self.assertEqual(combined_alerts(member(value=90, score=0.6), rules), [])
+        self.assertEqual(combined_alerts(member(value=110, score=0.4), rules), [])
+        self.assertEqual(combined_alerts(member(value=110), rules), [])   # no score at all
 
     def test_demo_api_joins_data(self):
         with patch.dict(os.environ, {"ASTROHEALTH_DASHBOARD": "demo"}):

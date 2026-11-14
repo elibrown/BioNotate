@@ -18,6 +18,18 @@
     "fatigue_risk": {
       "label": "Fatigue risk",
       "threshold": 0.7
+    },
+    "vocal_biomarker": {
+      "label": "Vocal biomarker (research only)",
+      "unit": "z-score"
+    }
+  },
+  "combined": {},
+  "rising": {
+    "vocal_biomarker_rising": {
+      "label": "Vocal biomarker went up check after check",
+      "key": "vocal_biomarker",
+      "checks": 4
     }
   }
 }
