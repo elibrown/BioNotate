@@ -1,0 +1,22 @@
+[
+  {
+    "id": "A-01",
+    "name": "Alex Morgan",
+    "role": "Commander"
+  },
+  {
+    "id": "A-02",
+    "name": "Sam Rivera",
+    "role": "Flight engineer"
+  },
+  {
+    "id": "A-03",
+    "name": "Jordan Chen",
+    "role": "Mission specialist"
+  },
+  {
+    "id": "A-04",
+    "name": "Robin Patel",
+    "role": "Science officer"
+  }
+]

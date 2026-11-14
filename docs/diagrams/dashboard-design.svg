@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="690" viewBox="0 0 1200 690" role="img" aria-labelledby="title desc">
+<title id="title">AstroHealth UI and processing architecture</title>
+<desc id="desc">FastAPI serves a browser dashboard and upload form. The dashboard polls the Dashboard API, which reads a crew repository and evaluates alerts. The repository currently uses synthetic data; database reads are planned. Video uploads pass through ingestion and a processing factory to a placeholder model. Real inference and database writes are planned. Solid arrows are implemented calls; dashed arrows are planned integrations.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#475569"/></marker></defs>
+<rect width="1200" height="690" rx="16" fill="#f8fafc"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#334155" text-anchor="middle">
+<text x="600" y="38" font-size="24" font-weight="bold" fill="#0f172a">AstroHealth · crew monitoring and prediction</text>
+<text x="600" y="64" font-size="14">One FastAPI server serves the UI and API · logical stages shown below</text>
+<rect x="30" y="110" width="250" height="500" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+<text x="155" y="147" font-size="20" font-weight="bold" fill="#0c4a6e">Browser UI</text>
+<text x="155" y="174" font-size="14">frontend/ · HTML, CSS, JavaScript</text>
+<text x="155" y="219" font-size="18" font-weight="bold">Crew dashboard /</text>
+<text x="155" y="246" font-size="14">Overview · member details</text>
+<text x="155" y="271" font-size="14">Trends · abnormality alerts</text>
+<text x="155" y="439" font-size="18" font-weight="bold">Video form /upload</text>
+<text x="155" y="466" font-size="14">Video + optional astronaut ID</text>
+<text x="155" y="572" font-size="13">UI assets served under /static</text>
+<rect x="350" y="180" width="240" height="135" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="470" y="212" font-size="19" font-weight="bold" fill="#14532d">Dashboard API</text>
+<text x="470" y="239" font-size="14">GET /api/dashboard</text>
+<text x="470" y="265" font-size="14">Evaluate limits + data freshness</text>
+<text x="470" y="290" font-size="14">Return crew status + alerts</text>
+<path d="M280 235H350" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="315" y="208" font-size="12">Poll 15s</text>
+<rect x="660" y="180" width="220" height="135" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="770" y="213" font-size="19" font-weight="bold" fill="#14532d">Crew repository</text>
+<text x="770" y="241" font-size="14">list_crew()</text>
+<text x="770" y="267" font-size="14">Current: synthetic snapshot</text>
+<text x="770" y="292" font-size="14">Future: database adapter</text>
+<path d="M590 245H660" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="625" y="225" font-size="12">Read</text>
+<rect x="950" y="180" width="220" height="135" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="1060" y="217" font-size="19" font-weight="bold" fill="#78350f">Database</text>
+<text x="1060" y="245" font-size="14">Integration planned</text>
+<text x="1060" y="272" font-size="14">Predictions + crew readings</text>
+<text x="1060" y="296" font-size="13">Technology / schema TBD</text>
+<path d="M880 245H950" stroke="#475569" stroke-width="2" stroke-dasharray="7 5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="915" y="225" font-size="12">Read</text>
+<rect x="350" y="400" width="240" height="125" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+<text x="470" y="433" font-size="19" font-weight="bold" fill="#0c4a6e">Ingestion</text>
+<text x="470" y="461" font-size="14">POST /api/video</text>
+<text x="470" y="487" font-size="14">Extension check + save upload</text>
+<text x="470" y="510" font-size="13">Audio / metrics endpoints planned</text>
+<path d="M280 460H350" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="660" y="400" width="220" height="125" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+<text x="770" y="433" font-size="19" font-weight="bold" fill="#0c4a6e">Processing factory</text>
+<text x="770" y="461" font-size="14">Video / audio / metrics strategy</text>
+<text x="770" y="487" font-size="14">Current: pass-through</text>
+<text x="770" y="510" font-size="13">Only video connected</text>
+<path d="M590 460H660" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="950" y="400" width="220" height="125" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+<text x="1060" y="433" font-size="19" font-weight="bold" fill="#4c1d95">Prediction stage</text>
+<text x="1060" y="461" font-size="14">Current: placeholder run_model()</text>
+<text x="1060" y="487" font-size="14">Planned: model + POST /predict</text>
+<text x="1060" y="510" font-size="13">Real inference not implemented</text>
+<path d="M880 460H950" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1060 400V315" stroke="#475569" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<text x="1060" y="358" font-size="12">Planned: persist results</text>
+<text x="760" y="574" font-size="13">Upload results return to the video form; they do not feed the dashboard yet.</text>
+<path d="M235 648H290" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="380" y="653" font-size="13">Implemented call</text>
+<path d="M570 648H625" stroke="#475569" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<text x="760" y="653" font-size="13">Planned database integration</text>
+</g></svg>

@@ -2,8 +2,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.routers import video
+from app.routers import dashboard, video
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -14,6 +15,8 @@ app = FastAPI(
 )
 
 app.include_router(video.router)
+app.include_router(dashboard.router)
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
 @app.get("/api/health")
@@ -26,6 +29,11 @@ def health_check():
 
 
 @app.get("/", include_in_schema=False)
-def upload_page():
-    """Simple upload page (frontend/index.html)."""
+def dashboard_page():
+    """Crew health dashboard."""
     return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/upload", include_in_schema=False)
+def upload_page():
+    return FileResponse(FRONTEND_DIR / "upload.html")

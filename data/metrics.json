@@ -1,0 +1,146 @@
+[
+  {
+    "astronaut_id": "A-01",
+    "key": "heart_rate",
+    "value": 70,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-01",
+    "key": "oxygen",
+    "value": 96,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-01",
+    "key": "heart_rate",
+    "value": 71,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-01",
+    "key": "oxygen",
+    "value": 97,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-01",
+    "key": "heart_rate",
+    "value": 72,
+    "observed_at": "2026-11-14T10:02:00Z"
+  },
+  {
+    "astronaut_id": "A-01",
+    "key": "oxygen",
+    "value": 98,
+    "observed_at": "2026-11-14T10:02:00Z"
+  },
+  {
+    "astronaut_id": "A-02",
+    "key": "heart_rate",
+    "value": 106,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-02",
+    "key": "oxygen",
+    "value": 95,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-02",
+    "key": "heart_rate",
+    "value": 107,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-02",
+    "key": "oxygen",
+    "value": 96,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-02",
+    "key": "heart_rate",
+    "value": 108,
+    "observed_at": "2026-11-14T10:02:00Z"
+  },
+  {
+    "astronaut_id": "A-02",
+    "key": "oxygen",
+    "value": 97,
+    "observed_at": "2026-11-14T10:02:00Z"
+  },
+  {
+    "astronaut_id": "A-03",
+    "key": "heart_rate",
+    "value": 66,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-03",
+    "key": "oxygen",
+    "value": 96,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-03",
+    "key": "heart_rate",
+    "value": 67,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-03",
+    "key": "oxygen",
+    "value": 97,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-03",
+    "key": "heart_rate",
+    "value": 68,
+    "observed_at": "2026-11-14T10:02:00Z"
+  },
+  {
+    "astronaut_id": "A-03",
+    "key": "oxygen",
+    "value": 98,
+    "observed_at": "2026-11-14T10:02:00Z"
+  },
+  {
+    "astronaut_id": "A-04",
+    "key": "heart_rate",
+    "value": 74,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-04",
+    "key": "oxygen",
+    "value": 90,
+    "observed_at": "2026-11-14T10:00:00Z"
+  },
+  {
+    "astronaut_id": "A-04",
+    "key": "heart_rate",
+    "value": 75,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-04",
+    "key": "oxygen",
+    "value": 91,
+    "observed_at": "2026-11-14T10:01:00Z"
+  },
+  {
+    "astronaut_id": "A-04",
+    "key": "heart_rate",
+    "value": 76,
+    "observed_at": "2026-11-14T10:02:00Z"
+  },
+  {
+    "astronaut_id": "A-04",
+    "key": "oxygen",
+    "value": 92,
+    "observed_at": "2026-11-14T10:02:00Z"
+  }
+]

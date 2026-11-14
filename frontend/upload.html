@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Health Check</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; background: #f7f8fa; color: #1d1f23; }
+    h1 { font-size: 1.5rem; }
+    .card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    button { margin-top: 12px; padding: 10px 18px; font-size: 1rem; border: 0; border-radius: 6px; background: #0b3d91; color: #fff; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: wait; }
+    input[type=text] { margin: 4px 0 10px; padding: 6px; width: 100%; max-width: 300px; }
+    pre { background: #1d1f23; color: #e6e6e6; padding: 14px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Video Health Check</h1>
+  <div class="card">
+    <p>Choose a video and press <b>Upload</b>. The result appears below.</p>
+    <label>Astronaut ID (optional)<br><input type="text" id="astronaut_id"></label><br>
+    <input type="file" id="video" accept="video/*">
+    <br>
+    <button id="upload">Upload</button>
+    <pre id="result">No result yet.</pre>
+  </div>
+
+  <script>
+    const button = document.getElementById("upload");
+    const output = document.getElementById("result");
+
+    button.addEventListener("click", async () => {
+      const file = document.getElementById("video").files[0];
+      if (!file) { output.textContent = "Please choose a video first."; return; }
+
+      const form = new FormData();
+      form.append("file", file);
+      const astronautId = document.getElementById("astronaut_id").value.trim();
+      if (astronautId) form.append("astronaut_id", astronautId);
+
+      button.disabled = true;
+      output.textContent = "Uploading and analysing...";
+      try {
+        const response = await fetch("/api/video", { method: "POST", body: form });
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        output.textContent = "Something went wrong: " + err;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
