@@ -1,0 +1,34 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Databases
+*.db
+*.sqlite3
+
+# Frontend
+node_modules/
+.next/
+dist/
+
+# Private data and captured images
+data/raw/
+data/private/
+data/captures/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
