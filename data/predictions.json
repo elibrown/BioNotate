@@ -1,0 +1,34 @@
+[
+  {
+    "id": "P-1",
+    "astronaut_id": "A-01",
+    "target": "fatigue_risk",
+    "score": 0.12,
+    "observed_at": "2026-11-14T10:02:00Z",
+    "model_version": "demo-v1"
+  },
+  {
+    "id": "P-2",
+    "astronaut_id": "A-02",
+    "target": "fatigue_risk",
+    "score": 0.81,
+    "observed_at": "2026-11-14T10:02:00Z",
+    "model_version": "demo-v1"
+  },
+  {
+    "id": "P-3",
+    "astronaut_id": "A-03",
+    "target": "fatigue_risk",
+    "score": 0.2,
+    "observed_at": "2026-11-14T10:02:00Z",
+    "model_version": "demo-v1"
+  },
+  {
+    "id": "P-4",
+    "astronaut_id": "A-04",
+    "target": "fatigue_risk",
+    "score": 0.3,
+    "observed_at": "2026-11-14T10:02:00Z",
+    "model_version": "demo-v1"
+  }
+]

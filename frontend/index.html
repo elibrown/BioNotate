@@ -1,55 +1,29 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Video Health Check</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; background: #f7f8fa; color: #1d1f23; }
-    h1 { font-size: 1.5rem; }
-    .card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-    button { margin-top: 12px; padding: 10px 18px; font-size: 1rem; border: 0; border-radius: 6px; background: #0b3d91; color: #fff; cursor: pointer; }
-    button:disabled { opacity: .5; cursor: wait; }
-    input[type=text] { margin: 4px 0 10px; padding: 6px; width: 100%; max-width: 300px; }
-    pre { background: #1d1f23; color: #e6e6e6; padding: 14px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroHealth · Crew monitoring</title>
+<link rel="stylesheet" href="/static/dashboard.css">
+<script src="/static/dashboard.js" defer></script>
 </head>
 <body>
-  <h1>Video Health Check</h1>
-  <div class="card">
-    <p>Choose a video and press <b>Upload</b>. The result appears below.</p>
-    <label>Astronaut ID (optional)<br><input type="text" id="astronaut_id"></label><br>
-    <input type="file" id="video" accept="video/*">
-    <br>
-    <button id="upload">Upload</button>
-    <pre id="result">No result yet.</pre>
-  </div>
-
-  <script>
-    const button = document.getElementById("upload");
-    const output = document.getElementById("result");
-
-    button.addEventListener("click", async () => {
-      const file = document.getElementById("video").files[0];
-      if (!file) { output.textContent = "Please choose a video first."; return; }
-
-      const form = new FormData();
-      form.append("file", file);
-      const astronautId = document.getElementById("astronaut_id").value.trim();
-      if (astronautId) form.append("astronaut_id", astronautId);
-
-      button.disabled = true;
-      output.textContent = "Uploading and analysing...";
-      try {
-        const response = await fetch("/api/video", { method: "POST", body: form });
-        const data = await response.json();
-        output.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        output.textContent = "Something went wrong: " + err;
-      } finally {
-        button.disabled = false;
-      }
-    });
-  </script>
-</body>
-</html>
+<aside class="sidebar" aria-label="AstroHealth navigation">
+  <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></a>
+  <nav class="rail-nav" aria-label="Main navigation">
+    <a class="rail-link " href="/" aria-label="Crew dashboard" data-tooltip="Crew dashboard" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m1-15a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-2-4"/></svg></a>
+    <a class="rail-link " href="/upload" aria-label="Upload video" data-tooltip="Upload video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3"/></svg></a>
+  </nav>
+  <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
+</aside>
+<main>
+<div class="heading"><div><p class="eyebrow">HUMAN PERFORMANCE MONITORING</p><h1>Crew health overview</h1><p class="muted">A shared view of the people behind the mission.</p></div><button id="refresh">Refresh data ↻</button></div>
+<p class="demo">DEMO ENVIRONMENT · Synthetic readings and illustrative alert limits. No live monitoring or clinical assessment.</p>
+<p id="connection" role="status">Connecting to crew telemetry…</p>
+<section id="summary" class="summary" aria-label="Crew summary"></section>
+<div class="section-heading"><h2>Crew status</h2><label>Show <select id="filter"><option value="all">All crew</option><option value="alert">Needs attention</option><option value="normal">Healthy</option><option value="unknown">Unknown</option></select></label></div>
+<section id="crew" class="crew" aria-label="Crew members"></section>
+<section class="alerts" id="alerts-panel"><div class="section-heading"><div><p class="eyebrow">EXCEPTIONS & OBSERVATIONS</p><h2>Health alerts</h2></div><span id="alert-count"></span></div><p class="muted">Alerts appear when a stored reading falls outside its configured range. Historical alerts stay visible if data becomes stale.</p><div id="alerts" aria-live="polite"></div></section>
+<footer>ASTROHEALTH / EARLY RISK DETECTION <span>Refreshes every 15 seconds · Readings older than 5 minutes marked stale</span></footer>
+</main>
+<dialog id="detail" aria-labelledby="detail-title"><div class="section-heading"><span class="eyebrow">CREW MEMBER / DETAIL</span><button id="close">Close ×</button></div><div id="detail-content"></div></dialog>
+</body></html>

@@ -1,7 +1,10 @@
 """
 Storage (SQLite): predictions and measurements.
 
-Two tables:
+Three tables:
+
+  astronauts    The crew roster: id, name, role. Filled from
+                data/astronauts.json the first time the dashboard runs.
 
   predictions   One row per model run (e.g. one uploaded video).
                 Keeps the model's FULL output as JSON plus its status,
@@ -11,6 +14,8 @@ Two tables:
                 One row = one reading of one metric, e.g.
                 (A-07, cardioresp, hr_bpm, 71.8 bpm, 12:19:31).
                 A video gives many rows: every reading the model made.
+                (The dashboard reads astronauts + measurements through
+                app/dashboard/repository.py.)
                 `source` is where it came from (the model name, or "manual"
                 for values typed in by hand) and `metric` is what it is.
 
@@ -36,6 +41,12 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]   # .../backend
 DEFAULT_DB_PATH = BACKEND_DIR / "astrohealth.db"
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS astronauts (
+    id    TEXT PRIMARY KEY,                  -- e.g. A-01, same as astronaut_id elsewhere
+    name  TEXT NOT NULL,
+    role  TEXT
+);
+
 CREATE TABLE IF NOT EXISTS predictions (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     astronaut_id       TEXT,                 -- may be NULL (optional on upload)
@@ -119,6 +130,48 @@ def init_db() -> None:
 
 
 # --------------------------------------------------------------------------
+# Astronauts (crew roster)
+# --------------------------------------------------------------------------
+
+def list_astronauts() -> list[dict]:
+    """
+    The roster, plus any astronaut_id that has data but isn't on the roster
+    (e.g. someone typed a new ID on upload), listed with their ID as name.
+    """
+    conn = _connect()
+    rows = conn.execute(
+        """
+        SELECT id, name, role FROM astronauts
+        UNION
+        SELECT DISTINCT astronaut_id, astronaut_id, NULL FROM measurements
+         WHERE astronaut_id IS NOT NULL
+           AND astronaut_id NOT IN (SELECT id FROM astronauts)
+        ORDER BY id
+        """
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_astronauts(astronauts: list[dict]) -> None:
+    """Add roster entries ({id, name, role}); existing IDs are left as they are."""
+    conn = _connect()
+    with conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO astronauts (id, name, role) VALUES (:id, :name, :role)",
+            [{"role": None, **a} for a in astronauts],
+        )
+    conn.close()
+
+
+def roster_is_empty() -> bool:
+    conn = _connect()
+    row = conn.execute("SELECT 1 FROM astronauts LIMIT 1").fetchone()
+    conn.close()
+    return row is None
+
+
+# --------------------------------------------------------------------------
 # Predictions
 # --------------------------------------------------------------------------
 
@@ -181,11 +234,14 @@ def save_prediction(
     offset_s (seconds into the video). They get this prediction's astronaut
     and the model name as their source.
 
-    Time of a reading = upload time + offset_s. That's approximate: we don't
-    know when the video was actually recorded, only when it was uploaded.
+    Time of a reading: we assume the video ENDED at upload time, so the last
+    reading gets the upload time and earlier ones are offset back from it.
+    That's approximate: we don't know when the video was actually recorded.
     """
     now = datetime.now(timezone.utc)
     created_at = to_iso(now)
+    offsets = [m["offset_s"] for m in measurements or [] if m.get("offset_s") is not None]
+    last_offset = max(offsets, default=0)
     model = _str_or_none(result.get("model"))
     conn = _connect()
     with conn:   # one transaction
@@ -210,7 +266,8 @@ def save_prediction(
         prediction_id = cur.lastrowid
         for m in measurements or []:
             offset_s = m.get("offset_s")
-            measured_at = now + timedelta(seconds=offset_s or 0)
+            seconds_before_end = last_offset - offset_s if offset_s is not None else 0
+            measured_at = now - timedelta(seconds=seconds_before_end)
             _insert_measurement(
                 conn,
                 astronaut_id=astronaut_id,
