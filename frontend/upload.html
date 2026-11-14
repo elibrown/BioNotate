@@ -7,14 +7,14 @@
   <link rel="stylesheet" href="/static/dashboard.css">
 </head>
 <body>
-<header>
-  <a class="brand" href="/">✳ ASTRO<span>HEALTH</span></a>
-  <span class="mission">MISSION CONTROL / CREW HEALTH</span>
-  <nav aria-label="Main navigation">
-    <a href="/" >Dashboard</a>
-    <a href="/upload" aria-current="page">Upload video</a>
+<aside class="sidebar" aria-label="AstroHealth navigation">
+  <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></a>
+  <nav class="rail-nav" aria-label="Main navigation">
+    <a class="rail-link " href="/" aria-label="Crew dashboard" data-tooltip="Crew dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m1-15a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-2-4"/></svg></a>
+    <a class="rail-link " href="/upload" aria-label="Upload video" data-tooltip="Upload video" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3"/></svg></a>
   </nav>
-</header>
+  <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
+</aside>
 <main class="upload-page">
   <p class="eyebrow">VIDEO ANALYSIS</p>
   <h1>Upload video</h1>
