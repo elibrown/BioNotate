@@ -30,7 +30,7 @@ docker compose up --build -d
 
 Open http://localhost:8000/ for the dashboard, `/upload` for video upload, or `/docs` for the API. No separate frontend server or build is needed. In development, Python changes reload automatically; refresh the browser after HTML/CSS/JS edits. Demo JSON changes appear on the next dashboard fetch (every 15 seconds). Rebuild after dependency changes; production requires rebuilding for all source/data changes.
 
-Use one mode at a time. Stop development with Ctrl+C; run `docker compose down` to remove containers. Uploads persist in a named volume; `down -v` deletes them. View logs with `docker compose logs -f app`. The image runs as a non-root user with a `/api/health` health check.
+Use one mode at a time. Stop development with Ctrl+C; run `docker compose down` to remove containers. Uploads and SQLite persist in separate named volumes; `down -v` deletes both. View logs with `docker compose logs -f app`. The image runs as a non-root user with a `/api/health` health check.
 
 If port 8000 is occupied, prefix the command with `APP_PORT=8001` and open http://localhost:8001/. PowerShell: set `$env:APP_PORT = "8001"` first. Inspect configuration with `docker compose config` (include both `-f` flags for development).
 
@@ -62,6 +62,19 @@ The demo clock is the latest fixture timestamp. Member details show trends, pred
 ## Dashboard class relationships
 
 ![Dashboard class relationships](docs/diagrams/dashboard-classes.svg)
+
+## Database in Docker, venv, and the team
+
+Both runtimes use the same SQLite code and schema, with different storage locations:
+
+| Runtime | Database location | Persistence |
+| --- | --- | --- |
+| Local venv | `backend/astrohealth.db` | Local file, ignored by Git |
+| Docker (dev and production) | `/app/storage/astrohealth.db` | Named `database` volume, writable by the app user |
+
+`ASTROHEALTH_DB` overrides the file path for either runtime; missing parent directories are created automatically. For example, from `backend/`: `ASTROHEALTH_DB=/absolute/path/astrohealth.db uvicorn app.main:app --reload`. PowerShell: set `$env:ASTROHEALTH_DB` before starting. Recreate existing containers with `docker compose -f compose.yaml -f compose.dev.yaml up -d --build` to pick up the storage configuration. Existing local databases are not automatically copied into Docker.
+
+These local files/volumes are independent; they do not synchronize across teammates. To share live data, run one central API/dashboard with persistent storage and have the team use its URL. If each teammate's local backend must access a shared database, migrate the storage adapter to a network database such as PostgreSQL. The current `ASTROHEALTH_DB` setting accepts a SQLite file path, not a PostgreSQL URL. Do not synchronize a running SQLite file through Git or a shared drive.
 
 ## Prediction storage (SQLite)
 

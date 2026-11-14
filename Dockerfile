@@ -2,7 +2,8 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    ASTROHEALTH_DB=/app/storage/astrohealth.db
 
 WORKDIR /app/backend
 COPY backend/requirements.txt ./requirements.txt
@@ -11,8 +12,8 @@ RUN python -m pip install -r requirements.txt
 
 RUN groupadd --gid 10001 astro \
     && useradd --uid 10001 --gid astro --create-home astro \
-    && mkdir -p /app/backend/uploads \
-    && chown astro:astro /app/backend/uploads
+    && mkdir -p /app/backend/uploads /app/storage \
+    && chown astro:astro /app/backend/uploads /app/storage
 
 COPY backend/app ./app
 COPY frontend /app/frontend

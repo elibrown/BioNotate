@@ -194,3 +194,16 @@ class StorageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DatabasePathTests(unittest.TestCase):
+    def test_creates_nested_path_and_reopens_saved_database(self):
+        from app import db
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "nested" / "storage" / "astrohealth.db"
+            with patch.dict(os.environ, {"ASTROHEALTH_DB": str(path)}):
+                db.add_astronauts([{"id": "PATH-TEST", "name": "Test Crew", "role": "Engineer"}])
+                self.assertTrue(path.is_file())
+                db._initialized.discard(str(path))
+                self.assertEqual(db.list_astronauts()[0]["id"], "PATH-TEST")
