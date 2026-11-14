@@ -15,7 +15,15 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from app import db
 from app.measurement_catalog import FIELD_BY_KEY
+
+
+EPOCH = datetime.fromtimestamp(0, timezone.utc)
+
+
+def parse_time(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 class Metric(BaseModel):
@@ -63,35 +71,46 @@ class DemoCrewRepository:
     def read(self, name):
         return json.loads((self.directory / f"{name}.json").read_text())
 
+    def metrics_for(self, astronaut_id, rows, rules):
+        metrics, observed = [], []
+        for key, rule in rules.items():
+            history = sorted(
+                [row for row in rows if row["astronaut_id"] == astronaut_id and row["key"] == key],
+                key=lambda row: parse_time(row["observed_at"]),
+            )
+            if history:
+                observed.append(parse_time(history[-1]["observed_at"]))
+            metrics.append(Metric(
+                key=key, **rule, value=history[-1]["value"] if history else None,
+                history=[row["value"] for row in history if row["value"] is not None],
+            ))
+        return metrics, observed
+
+    def predictions_for(self, astronaut_id, rows, rules):
+        predictions = []
+        for target, rule in rules.items():
+            matches = [row for row in rows
+                       if row["astronaut_id"] == astronaut_id and row["target"] == target]
+            if matches:
+                latest = max(matches, key=lambda row: parse_time(row["observed_at"]))
+                predictions.append(Prediction(
+                    **{key: value for key, value in latest.items() if key != "astronaut_id"}, **rule,
+                ))
+        return predictions
+
     def list_crew(self) -> list[CrewMember]:
-        astronauts = self.read("astronauts")
-        metrics = self.read("metrics")
-        predictions = self.read("predictions")
-        rules = self.read("rules")
+        metrics, predictions, rules = self.read("metrics"), self.read("predictions"), self.read("rules")
         self.stale_after_seconds = rules["stale_after_seconds"]
-        parse_time = lambda value: datetime.fromisoformat(value.replace("Z", "+00:00"))
-        # Replay the fixed demo at its latest observation, rather than claiming live data.
         times = [parse_time(row["observed_at"]) for row in metrics + predictions]
         self.evaluation_time = max(times) if times else None
         members = []
-        for astronaut in astronauts:
-            readings = []
-            observed = []
-            for key, rule in rules["metrics"].items():
-                history = sorted([row for row in metrics if row["astronaut_id"] == astronaut["id"] and row["key"] == key], key=lambda row: parse_time(row["observed_at"]))
-                if history:
-                    observed.append(parse_time(history[-1]["observed_at"]))
-                readings.append(Metric(key=key, **rule,
-                                       value=history[-1]["value"] if history else None,
-                                       history=[row["value"] for row in history if row["value"] is not None]))
-            results = []
-            for target, rule in rules["predictions"].items():
-                matches = [row for row in predictions if row["astronaut_id"] == astronaut["id"] and row["target"] == target]
-                if matches:
-                    latest = max(matches, key=lambda row: parse_time(row["observed_at"]))
-                    results.append(Prediction(**{k: v for k, v in latest.items() if k != "astronaut_id"}, **rule))
-            members.append(CrewMember(**astronaut, metrics=readings, predictions=results,
-                                      observed_at=min(observed) if observed else self.evaluation_time or datetime.fromtimestamp(0).astimezone()))
+        for astronaut in self.read("astronauts"):
+            readings, observed = self.metrics_for(astronaut["id"], metrics, rules["metrics"])
+            members.append(CrewMember(
+                **astronaut, metrics=readings,
+                predictions=self.predictions_for(astronaut["id"], predictions, rules["predictions"]),
+                observed_at=min(observed) if observed else self.evaluation_time or EPOCH,
+            ))
         return members
 
 
@@ -122,51 +141,56 @@ class DatabaseCrewRepository:
         self.data_dir = data_dir or DATA_DIR
         self.stale_after_seconds = 300
 
-    def list_crew(self) -> list[CrewMember]:
-        from app import db   # here, not at the top, to keep imports one-way
-
+    def load_rules(self):
         rules = json.loads((self.data_dir / "rules.json").read_text())
         self.stale_after_seconds = rules["stale_after_seconds"]
-        if db.roster_is_empty():
-            # First run: fill the roster from the demo profiles.
-            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text()))
+        return rules["metrics"]
 
-        members = []
-        for astronaut in db.list_astronauts():
-            metrics, observed = [], []
-            for key, rule in rules["metrics"].items():
-                if key not in self.metric_sources:
-                    continue
-                source, metric = self.metric_sources[key]
-                rows = db.list_measurements(astronaut_id=astronaut["id"], source=source,
-                                            metric=metric, limit=HISTORY_LENGTH)
-                if rows:
-                    observed.append(datetime.fromisoformat(rows[-1]["measured_at"]))
-                metrics.append(Metric(key=key, **rule,
-                                      value=rows[-1]["value"] if rows else None,
-                                      history=[r["value"] for r in rows]))
-            manual_rows = db.list_measurements(astronaut_id=astronaut["id"], source="manual", limit=10000)
-            latest_manual = {}
-            for row in manual_rows:
-                definition = FIELD_BY_KEY.get(row["metric"], {})
-                latest_manual[row["metric"]] = {
-                    **row,
-                    "label": definition.get("label", row["metric"]),
-                    "group_id": definition.get("group_id"),
-                }
-            members.append(CrewMember(
-                id=astronaut["id"],
-                name=astronaut["name"],
-                role=astronaut["role"] or "Not on roster",
-                # Oldest of the latest readings; no data at all = very old (stale).
-                observed_at=min(observed) if observed else datetime.fromtimestamp(0, timezone.utc),
-                metrics=metrics,
-                manual_measurements=list(latest_manual.values()),
-                # Risk-score predictions (rules.json "predictions") need a model
-                # that outputs scores; cardioresp doesn't, so none yet.
-                predictions=[],
-            ))
-        return members
+    def load_roster(self):
+        if db.roster_is_empty():
+            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text()))
+        return db.list_astronauts()
+
+    def load_metrics(self, astronaut_id, rules):
+        metrics, observed = [], []
+        for key, rule in rules.items():
+            if key not in self.metric_sources:
+                continue
+            source, metric = self.metric_sources[key]
+            rows = db.list_measurements(
+                astronaut_id=astronaut_id, source=source, metric=metric, limit=HISTORY_LENGTH,
+            )
+            if rows:
+                observed.append(parse_time(rows[-1]["measured_at"]))
+            metrics.append(Metric(key=key, **rule,
+                                  value=rows[-1]["value"] if rows else None,
+                                  history=[row["value"] for row in rows]))
+        return metrics, observed
+
+    def load_manual_measurements(self, astronaut_id):
+        rows = db.list_measurements(astronaut_id=astronaut_id, source="manual", limit=10000)
+        latest = {}
+        for row in rows:
+            definition = FIELD_BY_KEY.get(row["metric"], {})
+            latest[row["metric"]] = {
+                **row, "label": definition.get("label", row["metric"]),
+                "group_id": definition.get("group_id"),
+            }
+        return list(latest.values())
+
+    def build_member(self, astronaut, rules):
+        metrics, observed = self.load_metrics(astronaut["id"], rules)
+        return CrewMember(
+            id=astronaut["id"], name=astronaut["name"],
+            role=astronaut["role"] or "Not on roster",
+            observed_at=min(observed) if observed else EPOCH,
+            metrics=metrics, manual_measurements=self.load_manual_measurements(astronaut["id"]),
+            predictions=[],  # cardioresp produces measurements, not risk scores
+        )
+
+    def list_crew(self) -> list[CrewMember]:
+        rules = self.load_rules()
+        return [self.build_member(astronaut, rules) for astronaut in self.load_roster()]
 
 
 class SimulationDatabaseRepository(DatabaseCrewRepository):
@@ -183,8 +207,6 @@ class SimulationDatabaseRepository(DatabaseCrewRepository):
 
 
 def get_repository() -> CrewRepository:
-    from app import db
-
     if os.environ.get("ASTROHEALTH_DASHBOARD") == "demo":
         return DemoCrewRepository()
     # Prefer real model readings as soon as they exist; never relabel them as simulation.
