@@ -24,39 +24,38 @@ class ManualMeasurementTests(TestCase):
         self.environment.stop()
         self.tmp.cleanup()
 
-    def save(self, group, values):
+    def save(self, metric, value):
         return self.client.post('/api/manual-measurements', json={
-            "astronaut_id": "A-01", "group_id": group, "values": values,
+            "astronaut_id": "A-01", "metric": metric, "value": value,
             "measured_at": "2026-11-14T15:00:00+02:00",
         })
 
-    def test_pressure_and_temperature_are_stored_and_displayed(self):
-        response = self.save('blood_pressure', {"systolic_bp": 120, "diastolic_bp": 80})
-        self.assertEqual(response.status_code, 201, response.text)
-        self.assertEqual({row['unit'] for row in response.json()}, {'mmHg'})
-        self.assertEqual({row['measured_at'] for row in response.json()}, {'2026-11-14T13:00:00.000+00:00'})
-        self.assertEqual(self.save('temperature', {'temperature_c': 36.7}).status_code, 201)
-        self.assertEqual(self.save('glucose', {'glucose': 95}).status_code, 201)
+    def test_each_save_creates_one_row_visible_in_details(self):
+        for count, (metric, value) in enumerate([
+            ('systolic_bp', 120), ('diastolic_bp', 80), ('glucose', 95), ('temperature_c', 36.7),
+        ], 1):
+            response = self.save(metric, value)
+            self.assertEqual(response.status_code, 201, response.text)
+            self.assertEqual(response.json()['metric'], metric)
+            self.assertEqual(response.json()['measured_at'], '2026-11-14T13:00:00.000+00:00')
+            self.assertEqual(len(self.client.get('/api/measurements').json()), count)
         crew = self.client.get('/api/dashboard').json()['crew']
-        manual = next(member for member in crew if member['id'] == 'A-01')['manual_measurements']
-        self.assertEqual({row['metric'] for row in manual}, {'systolic_bp', 'diastolic_bp', 'temperature_c', 'glucose'})
+        self.assertEqual(len(next(member for member in crew if member['id'] == 'A-01')['manual_measurements']), 4)
 
-    def test_invalid_panel_does_not_write_partial_readings(self):
-        for group, values in [
-            ('blood_pressure', {'systolic_bp': 120}),
-            ('temperature', {'unknown_analyte': 10}),
-            ('unsupported_group', {'protein': 10}),
-            ('temperature', {'temperature_c': 'NaN'}),
-        ]:
-            with self.subTest(group=group, values=values):
-                self.assertEqual(self.save(group, values).status_code, 422)
+    def test_invalid_or_bulk_input_does_not_write(self):
+        self.assertEqual(self.save('unknown', 10).status_code, 422)
+        self.assertEqual(self.save('glucose', 'NaN').status_code, 422)
+        response = self.client.post('/api/manual-measurements', json={
+            'astronaut_id': 'A-01', 'group_id': 'blood_pressure',
+            'values': {'systolic_bp': 120, 'diastolic_bp': 80},
+            'measured_at': '2026-11-14T13:00:00Z',
+        })
+        self.assertEqual(response.status_code, 422)
         self.assertEqual(self.client.get('/api/measurements').json(), [])
 
-
-    def test_page_and_catalogue_are_limited_to_supported_metrics(self):
-        response = self.client.get('/measurements')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('id="manual-form"', response.text)
-        self.assertIn('href="/measurements"', self.client.get('/').text)
-        groups = self.client.get('/api/measurement-catalog').json()['groups']
-        self.assertEqual({group['id'] for group in groups}, {'blood_pressure', 'glucose', 'temperature'})
+    def test_page_and_catalogue(self):
+        page = self.client.get('/measurements')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('id="manual-value"', page.text)
+        self.assertNotIn('id="manual-fields"', page.text)
+        self.assertEqual(len(self.client.get('/api/measurement-catalog').json()['metrics']), 4)

@@ -425,20 +425,3 @@ def list_measurements(
     rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
-
-
-def add_manual_measurements(astronaut_id: str, measurements: list[dict],
-                            measured_at: str) -> list[dict]:
-    """Save a manual panel atomically, including paired blood pressures."""
-    conn = _connect()
-    try:
-        with conn:
-            ids = [_insert_measurement(
-                conn, astronaut_id=astronaut_id, source="manual",
-                metric=row["metric"], value=row["value"], unit=row["unit"],
-                measured_at=measured_at, offset_s=None, prediction_id=None,
-            ) for row in measurements]
-            return [dict(conn.execute("SELECT * FROM measurements WHERE id = ?", (id_,)).fetchone())
-                    for id_ in ids]
-    finally:
-        conn.close()
