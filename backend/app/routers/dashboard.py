@@ -117,9 +117,8 @@ def rising_alerts(member: CrewMember, rising_rules: dict) -> list[dict]:
 
 def is_stale(member: CrewMember, evaluation_time: datetime, max_age: int) -> bool:
     """Treat a member as stale when any included observation is too old."""
-    if member.simulated:
-        return False  # Static samples are labeled examples, not live telemetry.
-    timestamps = [member.observed_at, *(p.observed_at for p in member.predictions)]
+    timestamps = ([] if member.simulated else [member.observed_at])
+    timestamps.extend(p.observed_at for p in member.predictions)
     return any((evaluation_time - timestamp).total_seconds() > max_age
                for timestamp in timestamps)
 

@@ -46,6 +46,7 @@ python -m venv .venv
 # Linux/macOS: source .venv/bin/activate
 # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+python -m app.db_snapshot init
 uvicorn app.main:app --reload
 ```
 
@@ -199,3 +200,16 @@ Use **Manual measurements** in the sidebar (`/measurements`) to record one metri
 Docker stores SQLite at `/app/storage/astrohealth.db` in the persistent `database` volume. Container rebuilds/recreation retain it; `docker compose down -v` deletes it. Venv uses its own `backend/astrohealth.db` file.
 
 Populate persistent synthetic examples with `docker compose exec app python -m app.seed_samples` (venv: `python -m app.seed_samples` from `backend/`). The command is repeatable and preserves real records. Synthetic readings stay labeled, are exempt from live freshness expiry, and yield to real model/manual readings. There is no sample-preview dashboard or source selector.
+
+## Shared database snapshot
+
+`data/shared/astrohealth.sqlite3` is the tracked team baseline. Docker initializes a fresh volume automatically from this snapshot. Initialize a fresh venv database from `backend/` with `python -m app.db_snapshot init`, or use `docker compose exec app python -m app.db_snapshot init`. Existing runtime data is never overwritten. The UI reads SQLite; JSON files are seed/configuration inputs.
+
+To share updated data, export then commit the snapshot (venv: `python -m app.db_snapshot export`). Docker dev mounts data read-only, so use:
+
+```bash
+docker compose exec app python -m app.db_snapshot export --output /tmp/team.sqlite3
+docker compose cp app:/tmp/team.sqlite3 data/shared/astrohealth.sqlite3
+```
+
+Pulling updates the baseline, not an existing runtime DB. This shares a dataset through Git, not live edits. Uploaded media files are separate.
