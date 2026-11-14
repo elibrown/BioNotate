@@ -13,7 +13,10 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app import db
+from app.manual_metrics import LABELS
 
 
 class Metric(BaseModel):
@@ -43,6 +46,7 @@ class CrewMember(BaseModel):
     observed_at: datetime
     metrics: list[Metric]
     predictions: list[Prediction] = []
+    manual_measurements: list[dict] = Field(default_factory=list)
 
 
 class CrewRepository(Protocol):
@@ -118,9 +122,14 @@ class DatabaseCrewRepository:
         self.data_dir = data_dir or DATA_DIR
         self.stale_after_seconds = 300
 
-    def list_crew(self) -> list[CrewMember]:
-        from app import db   # here, not at the top, to keep imports one-way
+    def load_manual_measurements(self, astronaut_id):
+        rows = db.list_measurements(astronaut_id=astronaut_id, source="manual", limit=10000)
+        latest = {}
+        for row in rows:
+            latest[row["metric"]] = {**row, "label": LABELS.get(row["metric"], row["metric"])}
+        return list(latest.values())
 
+    def list_crew(self) -> list[CrewMember]:
         rules = json.loads((self.data_dir / "rules.json").read_text())
         self.stale_after_seconds = rules["stale_after_seconds"]
         if db.roster_is_empty():
@@ -148,6 +157,7 @@ class DatabaseCrewRepository:
                 # Oldest of the latest readings; no data at all = very old (stale).
                 observed_at=min(observed) if observed else datetime.fromtimestamp(0, timezone.utc),
                 metrics=metrics,
+                manual_measurements=self.load_manual_measurements(astronaut["id"]),
                 # Risk-score predictions (rules.json "predictions") need a model
                 # that outputs scores; cardioresp doesn't, so none yet.
                 predictions=[],
