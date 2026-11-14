@@ -163,3 +163,123 @@ Keep source files, `requirements.txt`, Python package markers (`__init__.py`), a
 Local PyCharm settings (`.idea/`), virtual environments (`.venv/`), Python caches, environment secrets, and uploaded videos are ignored by the root `.gitignore`. Ignoring a file does not untrack it if it has already been committed or staged.
 
 Future transformer and model-service boundaries should grow from this skeleton. Their runtime, deployment layout, prediction contract, and database remain undecided.
+
+
+## Cardiorespiratory Monitoring
+
+AstroHealth integrates `cardioresp` v0.2.0 to estimate
+cardiorespiratory measurements from prerecorded face videos.
+
+### Supported measurements
+
+- **Heart Rate (HR):** Estimated beats per minute.
+- **Respiratory Rate (RR):** Estimated breaths per minute.
+- **Pulse-Respiration Quotient (PRQ):** HR divided by RR.
+
+All three measurements are derived from the same analysis
+window, avoiding timestamp alignment between separate models.
+
+### Model installation
+
+Requirements:
+- Python 3.11 or newer
+- A supported OpenCV video decoder
+
+The model wheel is included in `backend/vendor/`.
+
+From the `backend` directory:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+The installation includes cardioresp, NumPy, SciPy,
+scikit-learn and OpenCV.
+
+### Running the backend
+
+From `backend/`:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+Open http://127.0.0.1:8000/ to upload a video.
+
+### Video upload API
+
+**Endpoint:** `POST /api/video`
+
+**Content type:** `multipart/form-data`
+
+Parameters:
+- `file` (required): Video recording
+- `astronaut_id` (optional): Identifier for the astronaut
+
+The backend saves the recording, selects VideoProcessor
+through ProcessorFactory, and calls the cardioresp model.
+
+### Recording requirements
+
+- Duration: At least 30 seconds; 60+ seconds recommended
+- Frame rate: At least 15 FPS; 30 FPS recommended
+- Resolution: At least 640x480 recommended
+- One seated person facing the camera
+- Stable lighting and minimal movement
+
+The first 30 seconds are used for warm-up.
+
+### API response
+
+The response contains:
+
+- `model`: cardioresp
+- `model_version`: 0.2.0
+- `status`: Status of the latest reading
+- `hr_bpm`: Latest heart-rate estimate
+- `respi_rate`: Latest respiratory-rate estimate
+- `prq`: Latest HR/RR quotient
+- `summary`: Recording-level median estimates
+- `measurements`: Timestamped readings and their statuses
+
+The `summary` contains median HR and RR estimates from
+successful readings and calculates PRQ from those medians.
+It also reports the number of valid readings.
+
+Reading statuses:
+- `warming_up`: Not enough data collected yet
+- `ok`: HR, RR and PRQ produced
+- `partial`: HR available, RR/PRQ unavailable
+- `no_face`: Face detection unsuccessful
+
+Invalid recordings return HTTP 422 with a descriptive error.
+
+### Running tests
+
+From `backend/`:
+
+```bash
+python -m pip install pytest
+python -m pytest -v
+```
+
+### Important accuracy limitations
+
+This is an experimental prototype, not a medical device.
+
+The model developer's UBFC-rPPG evaluation reported:
+- HR MAE: 0.95 BPM on DATASET_1
+- HR MAE: 2.73 BPM on DATASET_2
+- RR MAE: 3.65 breaths/min on DATASET_1
+
+Respiratory-rate estimation did not outperform a
+constant-mean baseline (3.53 breaths/min MAE).
+Consequently, RR and PRQ are not sufficiently validated
+for medical decisions.
+
+The model has not been validated on astronauts, in
+microgravity, or under International Space Station
+lighting conditions.
+
+A status of `ok` indicates successful computation,
+not verified clinical accuracy.
