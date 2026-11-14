@@ -28,12 +28,16 @@ function renderDetail() {
 }
 async function refresh() {
   if (loading) return;
-  loading = true; $('refresh').disabled = true;
+  loading = true; $('refresh').disabled = true; $('data-source').disabled = true;
   try {
-    const response = await fetch('/api/dashboard', {cache:'no-store', signal:AbortSignal.timeout(10000)});
+    const endpoint = $('data-source').value === 'demo' ? '/api/dashboard?demo=true' : '/api/dashboard';
+    const response = await fetch(endpoint, {cache:'no-store', signal:AbortSignal.timeout(10000)});
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     snapshot = await response.json(); failed = false;
     render();
+    document.querySelector('.demo').textContent = snapshot.mode === 'demo'
+      ? 'SAMPLE PREVIEW · Synthetic crew readings and model scores. Your saved database is unchanged.'
+      : 'SAVED READINGS · Database values. Manual entries appear in member details; missing model readings remain unknown.';
     $('connection').textContent = snapshot.mode === 'live'
       ? `Live data from the database · Updated ${time(snapshot.generated_at)}`
       : `Demo replay as of ${time(snapshot.demo_as_of)} · Loaded from demo files · No live sensor connection`;
@@ -41,8 +45,10 @@ async function refresh() {
     failed = true;
     $('connection').textContent = `Unable to refresh data. ${snapshot ? 'Showing last retrieved snapshot; readings may be outdated.' : 'No crew data available.'} Use Refresh data to retry.`;
     if (selectedId && snapshot) renderDetail();
-  } finally { loading = false; $('refresh').disabled = false; }
+  } finally { loading = false; $('refresh').disabled = false; $('data-source').disabled = false; }
 }
+$('data-source').value = new URLSearchParams(location.search).get('source') === 'demo' ? 'demo' : 'live';
+$('data-source').addEventListener('change', () => { if (!loading) refresh(); });
 $('refresh').addEventListener('click', refresh);
 $('filter').addEventListener('change', () => snapshot && render());
 document.addEventListener('click', event => {

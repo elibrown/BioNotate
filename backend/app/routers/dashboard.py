@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 
-from app.dashboard.repository import CrewMember, CrewRepository, get_repository
+from app.dashboard.repository import CrewMember, CrewRepository, DemoCrewRepository, get_repository
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -163,5 +163,7 @@ def build_snapshot(repository: CrewRepository, now: datetime) -> dict:
 
 
 @router.get("/dashboard")
-def dashboard(repository: CrewRepository = Depends(get_repository)):
+def dashboard(repository: CrewRepository = Depends(get_repository), demo: bool = False):
+    if demo:
+        repository = DemoCrewRepository()
     return build_snapshot(repository, datetime.now(timezone.utc))

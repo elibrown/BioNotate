@@ -16,8 +16,8 @@
   <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
 </aside>
 <main>
-<div class="heading"><div><p class="eyebrow">HUMAN PERFORMANCE MONITORING</p><h1>Crew health overview</h1><p class="muted">A shared view of the people behind the mission.</p></div><button id="refresh">Refresh data ↻</button></div>
-<p class="demo">DEMO ENVIRONMENT · Synthetic readings and illustrative alert limits. No live monitoring or clinical assessment.</p>
+<div class="heading"><div><p class="eyebrow">HUMAN PERFORMANCE MONITORING</p><h1>Crew health overview</h1><p class="muted">A shared view of the people behind the mission.</p></div><div class="heading-actions"><label>Show <select id="data-source"><option value="live">Saved readings</option><option value="demo">Sample preview</option></select></label><button id="refresh">Refresh data ↻</button></div></div>
+<p class="demo">Loading readings…</p>
 <p id="connection" role="status">Connecting to crew telemetry…</p>
 <section id="summary" class="summary" aria-label="Crew summary"></section>
 <div class="section-heading"><h2>Crew status</h2><label>Show <select id="filter"><option value="all">All crew</option><option value="alert">Needs attention</option><option value="normal">Healthy</option><option value="unknown">Unknown</option></select></label></div>

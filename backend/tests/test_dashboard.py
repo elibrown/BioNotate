@@ -68,3 +68,21 @@ class DashboardTests(unittest.TestCase):
         crew_ids = {crew["id"] for crew in snapshot["crew"]}
         self.assertTrue(snapshot["alerts"])
         self.assertTrue(all(alert["crew_id"] in crew_ids for alert in snapshot["alerts"]))
+
+    def test_sample_preview_has_data_without_writing_database(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from app import db
+
+        with TemporaryDirectory() as directory, patch.dict(os.environ, {
+            'ASTROHEALTH_DB': str(Path(directory) / 'preview.db'),
+            'ASTROHEALTH_DASHBOARD': 'live',
+        }):
+            client = TestClient(app)
+            sample = client.get('/api/dashboard?demo=true')
+            self.assertEqual(sample.status_code, 200)
+            self.assertEqual(sample.json()['mode'], 'demo')
+            self.assertTrue(all(member['predictions'] for member in sample.json()['crew']))
+            self.assertTrue(all(metric['value'] is not None for member in sample.json()['crew'] for metric in member['metrics']))
+            self.assertEqual(db.list_measurements(), [])
+            self.assertEqual(client.get('/api/dashboard').json()['mode'], 'live')
