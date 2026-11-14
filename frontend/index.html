@@ -7,7 +7,14 @@
 <script src="/static/dashboard.js" defer></script>
 </head>
 <body>
-<header><a class="brand" href="/">✳ ASTRO<span>HEALTH</span></a><span class="mission">MISSION CONTROL / CREW HEALTH</span><a href="/upload">Video analysis ↗</a></header>
+<header>
+  <a class="brand" href="/">✳ ASTRO<span>HEALTH</span></a>
+  <span class="mission">MISSION CONTROL / CREW HEALTH</span>
+  <nav aria-label="Main navigation">
+    <a href="/" aria-current="page">Dashboard</a>
+    <a href="/upload" >Upload video</a>
+  </nav>
+</header>
 <main>
 <div class="heading"><div><p class="eyebrow">HUMAN PERFORMANCE MONITORING</p><h1>Crew health overview</h1><p class="muted">A shared view of the people behind the mission.</p></div><button id="refresh">Refresh data ↻</button></div>
 <p class="demo">DEMO ENVIRONMENT · Synthetic readings and illustrative alert limits. No live monitoring or clinical assessment.</p>

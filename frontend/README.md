@@ -8,6 +8,7 @@ Start the app using the [root instructions](../README.md). FastAPI serves both U
 - **Crew cards:** name, role, astronaut ID, latest metrics, observation time, status, and a details button. Filter by status.
 - **Member details:** recent metric trends, configured ranges, latest model prediction scores, and member-specific alerts. Charts show reading sequence, not elapsed time.
 - **Alerts:** rule explanations with a direct link to the affected member. These are current snapshot exceptions; acknowledgement, saved alert history, and external notifications are not implemented.
+- **Navigation:** the header on both pages links to **Dashboard** and **Upload video**, highlighting the current page.
 - **Video upload:** `/upload` sends a video and optional manually entered astronaut ID to the rPPG heart-rate estimator. Results do not feed the dashboard yet.
 
 The browser polls `/api/dashboard` every 15 seconds. **Refresh data** fetches immediately. Failures preserve the last snapshot with a warning.
