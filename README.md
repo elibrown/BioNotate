@@ -8,13 +8,13 @@ Astronaut health monitoring and early risk detection platform for NASA Space App
 
 ![Dashboard read path and planned database integration](docs/diagrams/dashboard-design.svg)
 
-The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. Today the repository joins JSON demo files by astronaut ID. Itamar will replace it with a database adapter for users, metrics, and predictions; the handoff is marked `TODO(@itamar)` in `repository.py`.
+The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. By default the repository reads the SQLite database (`DatabaseCrewRepository`): the `astronauts` roster (filled from `data/astronauts.json` on first run) and the readings saved from uploaded videos. Set `ASTROHEALTH_DASHBOARD=demo` to show the JSON demo files instead (`DemoCrewRepository`).
 
 ### Video / data upload
 
 ![Target multimodal upload and prediction pipeline](docs/diagrams/system-design.svg)
 
-This is the target upload architecture. Currently `/upload` calls the existing `POST /api/video`: check filename extension → save video → select video processor → call `run_model()` → return cardioresp estimates for heart rate (HR), respiratory rate (RR), and pulse-respiration quotient (PRQ). All processing strategies currently pass input through unchanged; video is connected, while audio/metrics endpoints and a separate `/predict` service remain planned. The model returns latest HR/RR/PRQ, timestamped measurements, and recording-level median summaries. Invalid recordings return HTTP 422. Recordings need a visible frontal face, stable lighting, minimal movement, and at least 30 seconds of usable video (60+ recommended). This experimental model is not validated for medical decisions, astronauts, or microgravity; `ok` means computation succeeded. Database writes are not connected, so uploaded results do not update the dashboard yet. Both flows run in one FastAPI app, with sidebar links between dashboard and upload.
+This is the target upload architecture. Currently `/upload` calls the existing `POST /api/video`: check filename extension → save video → select video processor → call `run_model()` → return cardioresp estimates for heart rate (HR), respiratory rate (RR), and pulse-respiration quotient (PRQ). All processing strategies currently pass input through unchanged; video is connected, while audio/metrics endpoints and a separate `/predict` service remain planned. The model returns latest HR/RR/PRQ, timestamped measurements, and recording-level median summaries. Invalid recordings return HTTP 422. Recordings need a visible frontal face, stable lighting, minimal movement, and at least 30 seconds of usable video (60+ recommended). This experimental model is not validated for medical decisions, astronauts, or microgravity; `ok` means computation succeeded. Uploaded results are saved to the database and appear on the dashboard on its next refresh. Both flows run in one FastAPI app, with sidebar links between dashboard and upload.
 
 ## Run with Docker
 
@@ -73,6 +73,71 @@ classDiagram
     CrewMember "1" *-- "0..*" Prediction
 ```
 
+## Prediction storage (SQLite)
+
+Everything is stored in one SQLite file, `backend/astrohealth.db` (created on
+first use, not committed to git; set `ASTROHEALTH_DB` to use another path).
+All database code is in `backend/app/db.py`. There are two tables:
+
+- **predictions**: one row per model run (e.g. one uploaded video). It keeps
+  the model's full output as JSON, its `model`, `status`, and whether it is an
+  alert. This is what the UI shows as status and alerts.
+- **measurements**: every reading, for charts and trend analysis. Each row is
+  one value: astronaut, `source`, `metric`, value, unit, time. Each model has
+  its own metrics, so `source` is the model name (e.g. `cardioresp`) and
+  `metric` is its field (e.g. `hr_bpm`). Values entered by hand, e.g. a lab
+  result, have `source = "manual"` and no `prediction_id`.
+
+After each model run, `backend/app/extractors.py` picks the readings out of the
+model output. For `cardioresp` it saves every reading with status `ok` or
+`partial`: `hr_bpm`, `respi_rate` and `prq` (a 60 s video gives about 30
+readings x 3 metrics). `warming_up` and `no_face` readings have no values and
+are skipped. A reading's time is the upload time plus its `timestamp_s`
+(stored as `offset_s`); approximate, since we don't know when the video was
+recorded. A new model needs one small function in that file.
+
+A prediction is an alert if the model returns `"alert": true`, or if the
+**median** of a metric's readings in that video is outside its range in
+`ALERT_RANGES` (`backend/app/db.py`). The median, so one noisy reading doesn't
+raise an alert. Today the only range is cardioresp heart rate 40-120 bpm, a
+placeholder until someone sets real limits. Respiratory rate has no range
+because cardioresp's RR is not validated. The model `status` describes video
+quality, not health, so it never triggers an alert; it is still saved so the
+UI can say "retake the video".
+
+| Endpoint | What it returns |
+| --- | --- |
+| `GET /api/predictions?astronaut_id=A-07&limit=50` | Model runs, newest first (omit `astronaut_id` for everyone) |
+| `GET /api/predictions/{id}` | One model run, with its full output |
+| `GET /api/alerts` | Alerts nobody has handled, newest first (`?astronaut_id=`, `?include_acknowledged=true`) |
+| `POST /api/alerts/{id}/ack` | Marks an alert as handled |
+| `GET /api/measurements?astronaut_id=A-07&source=cardioresp&metric=hr_bpm&since=2026-11-01` | Readings oldest first, ready for a chart (all filters optional, plus `prediction_id` for one video, `until`, `limit`) |
+| `POST /api/measurements` | Add one value by hand (JSON: `astronaut_id`, `metric`, `value`, optional `unit`, `measured_at`, `source` (default `manual`)) |
+
+A measurement looks like:
+
+```json
+{"id": 1, "astronaut_id": "A-07", "source": "cardioresp", "metric": "hr_bpm",
+ "value": 71.8, "unit": "bpm", "measured_at": "2026-11-14T12:20:01.000+00:00",
+ "offset_s": 30.0, "prediction_id": 1}
+```
+
+`POST /api/video` now also returns `prediction_id`, `created_at`, `is_alert`
+and the `measurements` it saved.
+
+Tests: from `backend/`, run `python -m pytest -q`.
+
+If you ran an earlier version of this branch, delete `backend/astrohealth.db`
+once; it will be recreated with the current tables.
+
+The dashboard (`GET /api/dashboard`) reads this database through
+`DatabaseCrewRepository` in `backend/app/dashboard/repository.py`. `DB_METRICS`
+there maps each dashboard metric in `data/rules.json` to a stored
+`(source, metric)`; today only `heart_rate` -> `("cardioresp", "hr_bpm")`.
+Rule metrics with no mapping (e.g. `oxygen`) are not shown, and risk-score
+predictions stay empty until a model produces scores. Note the dashboard's
+alerts use the ranges in `data/rules.json`, separate from `ALERT_RANGES` above.
+
 ## Repository structure
 
 ```text
@@ -87,10 +152,14 @@ astro-health-monitor/
 │   ├── vendor/                     # Vendored cardioresp wheel
 │   ├── app/
 │   │   ├── main.py                 # FastAPI setup, pages, and static assets
+│   │   ├── db.py                   # SQLite storage: predictions, measurements, alert rule
+│   │   ├── extractors.py           # Model output -> measurement rows, per model
 │   │   ├── dashboard/
 │   │   │   └── repository.py       # Demo data models/reader; database handoff
 │   │   ├── routers/
 │   │   │   ├── dashboard.py        # Snapshot API and status/alert functions
+│   │   │   ├── predictions.py      # Prediction history and alerts API
+│   │   │   ├── measurements.py     # Measurements API (trends, manual entry)
 │   │   │   └── video.py            # Video upload and analysis endpoint
 │   │   ├── models/
 │   │   │   └── video_model.py      # HR/RR/PRQ model adapter

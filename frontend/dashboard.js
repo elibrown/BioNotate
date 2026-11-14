@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 let snapshot = null, selectedId = null, loading = false, failed = false;
 const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const time = value => new Date(value).toLocaleString();
+const time = value => new Date(value).getTime() === 0 ? 'never (no readings yet)' : new Date(value).toLocaleString();
 const statusLabel = status => ({normal:'Healthy',alert:'Needs attention',unknown:'Unknown'}[status] || 'Unknown');
 function metrics(member) {
   return member.metrics.map(m => `<div class="metric"><span>${escapeHTML(m.label)}</span><strong>${escapeHTML(m.value ?? '—')} <small>${escapeHTML(m.unit)}</small></strong></div>`).join('');
@@ -34,7 +34,9 @@ async function refresh() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     snapshot = await response.json(); failed = false;
     render();
-    $('connection').textContent = `Demo replay as of ${time(snapshot.demo_as_of)} · Loaded from demo files · No live sensor connection`;
+    $('connection').textContent = snapshot.mode === 'live'
+      ? `Live data from the database · Updated ${time(snapshot.generated_at)}`
+      : `Demo replay as of ${time(snapshot.demo_as_of)} · Loaded from demo files · No live sensor connection`;
   } catch (error) {
     failed = true;
     $('connection').textContent = `Unable to refresh data. ${snapshot ? 'Showing last retrieved snapshot; readings may be outdated.' : 'No crew data available.'} Use Refresh data to retry.`;

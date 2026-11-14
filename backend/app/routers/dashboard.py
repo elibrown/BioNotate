@@ -85,7 +85,8 @@ def build_snapshot(repository: CrewRepository, now: datetime) -> dict:
         result, member_alerts = evaluate_member(member, evaluation_time, max_age)
         crew.append(result)
         alerts.extend(member_alerts)
-    return {"mode": "demo", "generated_at": now, "demo_as_of": evaluation_time,
+    return {"mode": getattr(repository, "mode", "demo"), "generated_at": now,
+            "demo_as_of": evaluation_time,
             "crew": crew, "alerts": alerts}
 
 
