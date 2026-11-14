@@ -43,3 +43,7 @@ class ProcessingTests(unittest.TestCase):
                 process.assert_called_once_with(saved)
                 model.assert_called_once_with(prepared)
                 self.assertEqual(response.json()["result"], {"stub": True})
+
+
+if __name__ == "__main__":
+    unittest.main()

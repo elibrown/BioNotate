@@ -50,12 +50,13 @@ Unsupported data types raise `ValueError`. The input and output formats of each 
 
 We could eventually expose `/api/video`, `/api/audio`, and `/api/metrics`. Each endpoint would know the data type and select its processor internally. The client would not need to send a `modality` or `data_type` field. Only `/api/video` exists today; the others are ideas for future integration.
 
-From `backend/`, run the small test suite or the PyCharm debug example:
+From `backend/`, run the processing tests:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python debug_processing.py
+.venv/bin/python -m unittest discover -s tests -p test_processing.py -v
 ```
+
+To debug, set breakpoints in the factory or processors, then right-click `backend/tests/test_processing.py` in PyCharm and choose **Debug**. The same file serves testing and debugging.
 
 ## Running the backend
 
@@ -128,7 +129,6 @@ astro-health-monitor/
 ├── README.md
 ├── backend/
 │   ├── requirements.txt              # Python dependency pins
-│   ├── debug_processing.py           # Small factory/processor example
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py                   # FastAPI app, health route, upload page
