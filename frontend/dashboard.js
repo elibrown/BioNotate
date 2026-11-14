@@ -4,14 +4,21 @@ let snapshot = null, selectedId = null, loading = false, failed = false;
 const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = value => new Date(value).getTime() === 0 ? 'never (no readings yet)' : new Date(value).toLocaleString();
 const statusLabel = status => ({normal:'Healthy',alert:'Needs attention',unknown:'Unknown'}[status] || 'Unknown');
+function observationLabel(member) {
+  if (new Date(member.observed_at).getTime() === 0) return 'No model readings yet';
+  return `${member.stale ? 'STALE · ' : ''}Observed ${time(member.observed_at)}`;
+}
 function metrics(member) {
   return member.metrics.map(m => `<div class="metric"><span>${escapeHTML(m.label)}</span><strong>${escapeHTML(m.value ?? '—')} <small>${escapeHTML(m.unit)}</small></strong></div>`).join('');
 }
 function render() {
   const {crew, alerts} = snapshot;
+  const hasReadings = crew.some(member => member.metrics.some(metric => metric.value !== null) || member.manual_measurements?.length);
+  $('data-guidance').hidden = snapshot.mode !== 'live' || hasReadings;
+  $('data-guidance').textContent = 'The database has crew profiles but no readings yet. Use Add measurement to record values, or Upload video in the left sidebar for model analysis. Manual results appear in each member’s health details.';
   $('summary').innerHTML = [['Crew members',crew.length],['Healthy',crew.filter(m => m.status === 'normal').length],['Needs attention',crew.filter(m => m.status === 'alert').length],['Unknown / stale',crew.filter(m => m.status === 'unknown' || m.stale).length]].map(([label,count]) => `<div class="stat"><span>${label}</span><strong>${count}</strong></div>`).join('');
   const filtered = crew.filter(m => $('filter').value === 'all' || m.status === $('filter').value);
-  $('crew').innerHTML = filtered.map(m => `<article class="card ${escapeHTML(m.status)}"><div class="card-top"><span class="avatar">${escapeHTML(m.name.split(' ').map(n => n[0]).join(''))}</span><span class="badge">${statusLabel(m.status)}</span></div><div><h3>${escapeHTML(m.name)}</h3><p class="role">${escapeHTML(m.role)} · ${escapeHTML(m.id)}</p></div>${metrics(m)}<p class="timestamp">${m.stale ? 'STALE · ' : ''}Observed ${escapeHTML(time(m.observed_at))}</p><button data-member="${escapeHTML(m.id)}">View health details ↗</button></article>`).join('') || '<p class="empty">No crew members in this view.</p>';
+  $('crew').innerHTML = filtered.map(m => `<article class="card ${escapeHTML(m.status)}"><div class="card-top"><span class="avatar">${escapeHTML(m.name.split(' ').map(n => n[0]).join(''))}</span><span class="badge">${statusLabel(m.status)}</span></div><div><h3>${escapeHTML(m.name)}</h3><p class="role">${escapeHTML(m.role)} · ${escapeHTML(m.id)}</p></div>${metrics(m)}<p class="timestamp">${escapeHTML(observationLabel(m))}</p><button data-member="${escapeHTML(m.id)}">View health details ↗</button></article>`).join('') || '<p class="empty">No crew members in this view.</p>';
   $('alert-count').textContent = `${alerts.length} exceptions`;
   $('alerts').innerHTML = alerts.map(a => `<div class="alert-row"><div><strong>${escapeHTML(a.crew_name)}</strong><p>${escapeHTML(a.message)}</p><span class="timestamp">Observed ${escapeHTML(time(a.observed_at))}</span></div><button data-member="${escapeHTML(a.crew_id)}">Review member ↗</button></div>`).join('') || '<p class="empty">No out-of-range readings in this snapshot.</p>';
   if (selectedId) renderDetail();
@@ -19,7 +26,7 @@ function render() {
 function renderDetail() {
   const member = snapshot.crew.find(m => m.id === selectedId);
   if (!member) { $('detail-content').innerHTML = '<p>Crew member is no longer available.</p>'; return; }
-  $('detail-content').innerHTML = `<h1 id="detail-title">${escapeHTML(member.name)}</h1><p class="muted">${escapeHTML(member.role)} · ${escapeHTML(member.id)} · ${statusLabel(member.status)}</p><p class="timestamp">Observed ${escapeHTML(time(member.observed_at))}${member.stale ? ' · STALE DATA' : ''}${failed ? ' · Refresh failed; showing last snapshot' : ''}</p>${metrics(member)}${member.metrics.map(m => {
+  $('detail-content').innerHTML = `<h1 id="detail-title">${escapeHTML(member.name)}</h1><p class="muted">${escapeHTML(member.role)} · ${escapeHTML(member.id)} · ${statusLabel(member.status)}</p><p class="timestamp">${escapeHTML(observationLabel(member))}${failed ? ' · Refresh failed; showing last snapshot' : ''}</p>${metrics(member)}${member.metrics.map(m => {
     const values = m.history;
     const low = Math.min(...values), high = Math.max(...values);
     const points = values.map((v,i) => `${10+i*480/Math.max(values.length-1,1)},${55-(v-low)*40/Math.max(high-low,1)}`).join(' ');

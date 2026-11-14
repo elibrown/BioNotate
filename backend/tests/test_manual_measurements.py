@@ -55,3 +55,10 @@ class ManualMeasurementTests(TestCase):
         groups = self.client.get('/api/measurement-catalog').json()['groups']
         self.assertEqual({group['id'].split('_')[0] for group in groups},
                          {'VITALS', *(f'BM{i:02}' for i in range(1, 13))})
+
+    def test_frontend_revalidates_and_serves_manual_entry(self):
+        for path in ('/', '/upload', '/static/dashboard.js', '/static/manual.js'):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers['cache-control'], 'no-cache, must-revalidate')
+        self.assertIn('id="add-measurement"', self.client.get('/').text)

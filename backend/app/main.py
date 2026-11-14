@@ -21,6 +21,14 @@ app.include_router(dashboard.router)
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
+@app.middleware("http")
+async def prevent_stale_frontend(request, call_next):
+    response = await call_next(request)
+    if request.url.path in {"/", "/upload"} or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
+
 @app.get("/api/health")
 def health_check():
     return {
