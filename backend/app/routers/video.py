@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.models.video_model import run_model
+from app.processing import ProcessorFactory
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]   # .../backend
 UPLOAD_DIR = BACKEND_DIR / "uploads"                 # where videos are saved
@@ -44,7 +45,9 @@ def upload_video(
     with saved_path.open("wb") as out_file:
         shutil.copyfileobj(file.file, out_file)
 
-    result = run_model(saved_path)
+    processor = ProcessorFactory().get_processor("video")
+    processed_video = processor.process(saved_path)
+    result = run_model(processed_video)
 
     return {
         "astronaut_id": astronaut_id,

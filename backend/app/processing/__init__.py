@@ -1,9 +1,7 @@
-"""Optional processing layer; not yet connected to the video upload route."""
-from .contracts import InputData, Modality, PredictionRequest, Processor
+"""Processing skeleton with video connected to the upload route."""
 from .factory import ProcessorFactory
-from .strategies import AudioProcessor, MetricsProcessor, VideoProcessor
+from .strategies import AudioProcessor, MetricsProcessor, Processor, VideoProcessor
 
 __all__ = [
-    "InputData", "Modality", "PredictionRequest", "Processor", "ProcessorFactory",
-    "AudioProcessor", "MetricsProcessor", "VideoProcessor",
+    "ProcessorFactory", "Processor", "VideoProcessor", "AudioProcessor", "MetricsProcessor",
 ]
