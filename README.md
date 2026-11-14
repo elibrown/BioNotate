@@ -18,6 +18,60 @@ Browser → POST /api/video → backend/uploads/ → run_model(saved_path) → J
 
 There is no frame extraction, face processing, separate `/predict` endpoint, or prediction database yet. Upload validation currently checks extensions only; content validation, size limits, retention, and retry handling remain to be implemented.
 
+## Modality processing: factory and strategies
+
+`backend/app/processing/` adds an isolated processing layer for video, audio, and metrics. **It is not connected to the upload endpoint yet.** Existing routes, frontend, and model code are unchanged.
+
+```text
+InputData(request_id, modality, source, astronaut_id)
+                         ↓
+                 ProcessorFactory
+                 ├── video   → VideoProcessor → injected video adapter
+                 ├── audio   → AudioProcessor → injected audio adapter
+                 └── metrics → MetricsProcessor → validated numeric values
+                         ↓
+          PredictionRequest(common envelope, modality-specific payload)
+                         ↓
+          Future prediction client / model service (not implemented)
+```
+
+The factory selects by explicit modality, not extension: WebM may contain video or audio. Every strategy implements `process(InputData) -> PredictionRequest`. `register()` can replace a strategy within one factory instance. Processing performs no inference, HTTP calls, or persistence and adds no dependencies.
+
+| Strategy | Implemented | Still requires |
+|---|---|---|
+| Video | Validate local path, extension, file existence, and nonempty file; invoke injected adapter | Model-specific decoding, frame extraction, face processing, and features |
+| Audio | Validate local path, extension, file existence, and nonempty file; invoke injected adapter | Model-specific decoding, resampling, and features |
+| Metrics | Validate named finite numbers, reject booleans, copy values as floats | Agreed names, units, timestamps, and model-specific normalization |
+
+Media validation does not inspect encoded content. Without a configured adapter, video and audio raise `NotImplementedError`. An adapter accepts a `Path` and returns a payload dictionary; its shape and serialization requirements must be agreed with the future prediction client. Metrics currently accept a flat mapping, not a time series.
+
+Example, from `backend/` with the venv active:
+
+```python
+from app.processing import InputData, Modality, ProcessorFactory
+
+factory = ProcessorFactory()
+request = factory.get_processor(Modality.METRICS).process(
+    InputData(
+        request_id="req-001",
+        modality=Modality.METRICS,
+        source={"heart_rate": 72, "temperature": 36.5},
+        astronaut_id="A-07",
+    )
+)
+print(request.to_dict())
+# {"request_id": "req-001", "modality": "metrics", "astronaut_id": "A-07",
+#  "payload": {"metrics": {"heart_rate": 72.0, "temperature": 36.5}}}
+```
+
+Configure media with `ProcessorFactory(video_adapter=prepare_video, audio_adapter=prepare_audio)`. The caller supplies the request ID, selects a strategy, and passes `InputData`. Unsupported modalities and invalid inputs raise `ValueError`; adapter failures propagate. Future API integration must translate errors into HTTP responses.
+
+Run processing tests from `backend/`:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+```
+
 ## Running the backend
 
 
@@ -50,15 +104,15 @@ replace `run_model()` in `backend/app/models/video_model.py` with the real one.
 
 ## Implementation plan
 
-The initial pipeline accepts video from a client, transforms it into the input required by a model, and requests a prediction from the model service. The model and its preprocessing requirements are still being evaluated. The diagram below describes the target architecture. The current skeleton implements video upload and a direct call to a placeholder model in one FastAPI backend; the transformer, separate prediction endpoint, and database are not implemented.
+The target pipeline accepts video, audio, or metrics, selects a processing strategy, prepares model input, and requests a prediction from the model service. The model and its preprocessing requirements are still being evaluated. The diagram below describes the target architecture. The current skeleton implements video upload and a direct call to a placeholder model in one FastAPI backend; the processing factory exists as an unconnected package; media adapters, the separate prediction endpoint, and the database are not implemented.
 
 ### System design
 
-![System design: client video passes through ingestion and transformation to model prediction, with future database persistence.](docs/diagrams/system-design.svg)
+![System design: client data passes through ingestion and modality-specific transformation to model prediction, with future database persistence.](docs/diagrams/system-design.svg)
 
-1. **Client:** captures or selects a video and submits it to the ingestion service. Video is the only input type in the initial scope.
-2. **Ingestion service:** receives the video, validates the supported format and size, and assigns a request ID that follows the video through the pipeline.
-3. **Transformer:** prepares the video for the selected model. Possible steps include frame extraction, face detection or recognition, cropping, and normalization. The exact steps and output format depend on model selection; face recognition is not yet a requirement.
+1. **Client:** submits video, audio, or metrics. The current UI/API accepts video only; audio and metrics ingestion are future additions.
+2. **Ingestion service:** receives data with an explicit modality, validates the supported format and size, and assigns a request ID that follows the video through the pipeline.
+3. **Transformer:** uses the factory to select a video, audio, or metrics strategy. Each strategy prepares its own model-specific payload. Possible steps include frame extraction, face detection or recognition, cropping, and normalization. The exact steps and output format depend on model selection; face recognition is not yet a requirement.
 4. **Model service:** exposes a proposed `POST /predict` endpoint, validates the transformed input, runs inference, and returns a prediction associated with the request ID.
 5. **Prediction database (future):** the model service will persist prediction results and relevant metadata. The database technology and schema remain undecided.
 
@@ -76,8 +130,8 @@ The transformer should isolate model-specific preprocessing from ingestion. Its 
 
 ### Suggested implementation order
 
-1. Agree on an initial video submission contract and prediction contract using sample payloads.
-2. Build an ingestion-to-transformer-to-model-service path with a placeholder transformer and stub predictions to validate integration.
+1. Agree with the upload/model owners on modality-specific ingestion and prediction contracts.
+2. Connect the isolated processing package at an agreed call site, then validate integration with a stub model service.
 3. Select a model and implement its preprocessing adapter and inference.
 4. Add prediction persistence, then verify the full flow and failure handling with a representative video fixture.
 
@@ -95,9 +149,16 @@ astro-health-monitor/
 │   │   ├── routers/
 │   │   │   ├── __init__.py
 │   │   │   └── video.py              # POST /api/video and file storage
-│   │   └── models/
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   └── video_model.py        # Placeholder run_model()
+│   │   └── processing/              # Isolated; not connected to routes
 │   │       ├── __init__.py
-│   │       └── video_model.py        # Placeholder run_model()
+│   │       ├── contracts.py          # Envelopes and processor protocol
+│   │       ├── factory.py            # Strategy selection and registration
+│   │       └── strategies.py         # Video, audio, and metrics processing
+│   ├── tests/
+│   │   └── test_processing.py
 │   └── uploads/
 │       └── .gitkeep                  # Uploaded files are ignored
 ├── frontend/
