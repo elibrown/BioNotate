@@ -112,6 +112,7 @@ DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 # (e.g. "oxygen": no model measures it yet) are left off the dashboard.
 DB_METRICS = {
     "heart_rate": ("cardioresp", "hr_bpm"),
+    "respiratory_rate": ("cardioresp", "respi_rate"),
 }
 
 # Same idea for model scores shown under "Model predictions": key in

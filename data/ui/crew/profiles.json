@@ -1,0 +1,7 @@
+{
+  "_note": "Demo profile details for the crew profile page (illustrative, not real people).",
+  "A-01": {"age": 34, "blood_type": "O+", "height_m": 1.78, "weight_kg": 72.4},
+  "A-02": {"age": 31, "blood_type": "A+", "height_m": 1.65, "weight_kg": 58.2},
+  "A-03": {"age": 36, "blood_type": "B+", "height_m": 1.70, "weight_kg": 63.5},
+  "A-04": {"age": 29, "blood_type": "AB-", "height_m": 1.75, "weight_kg": 70.1}
+}

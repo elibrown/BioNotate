@@ -151,3 +151,114 @@ body{padding-left:74px}
 .saved-reading small{grid-column:1/-1;color:#485d80}
 @media(max-width:900px){.profile-grid,.profile-data-grid{grid-template-columns:1fr}.trends-panel{grid-column:auto}.body-panel{min-height:380px}.profile-header>strong{font-size:32px}.trends-panel>.section-heading{align-items:start;flex-direction:column}}
 @media(max-width:550px){.bionotate #detail{padding:16px}.profile-panel{padding:16px}.body-panel{grid-template-columns:1fr;min-height:0}.body-placeholder{height:220px}.body-vitals{gap:12px;grid-template-columns:1fr 1fr;padding:0}.vital-callout{padding:12px}.vital-callout span{font-size:15px}.profile-facts{grid-template-columns:1fr 1fr}.vital-trend{grid-template-columns:1fr}.profile-header{gap:12px}.profile-header .timestamp{margin-left:0}.identity-panel>.section-heading{align-items:start;flex-wrap:wrap}}
+
+/* ---- Figma "Bionotate" match: photos, status faces, icons (figma-1) ---- */
+.icon{width:24px;height:24px;flex-shrink:0;display:inline-block;vertical-align:middle}
+/* Header summary pills with status faces */
+.bionotate .stat{position:relative;flex:1 1 0;min-width:0;padding:10px 22px 10px 52px;margin-left:22px;border-radius:12px;background:linear-gradient(#fbfdfd,#e5effc);border:0;box-shadow:0 2px 8px #263f6414}
+.bionotate .stat img{position:absolute;left:-24px;top:50%;transform:translateY(-50%);width:62px;height:62px}
+.bionotate .summary{flex-wrap:nowrap;gap:16px}.bionotate .stat span{font-size:21px;overflow:hidden;text-overflow:ellipsis}
+.bionotate .stat strong{font-size:26px;font-weight:600;margin-left:10px}
+.bionotate #connection{max-width:none;font-size:18px;color:#070f4c;border-left:2px solid #070f4c;padding:6px 0 6px 12px;margin:0 0 0 auto}
+/* Crew cards */
+.bionotate .card{background:#0b3fb0;border:0;display:flex;flex-direction:column}
+.bionotate .crew-portrait{inset:0 0 auto;height:78%;object-position:top center}
+.portrait-initials{display:none}
+.bionotate .card.no-photo .portrait-initials{display:block}
+.bionotate .crew{grid-template-columns:repeat(4,minmax(0,317px))}.bionotate .card::after{inset:42% 0 0;background:linear-gradient(transparent 0,#000c 30%,#000 50%)}
+.bionotate .card.alert::after{background:linear-gradient(transparent 0,#d90f1acc 30%,#e0141e 50%)}
+.bionotate .card.unknown::after{background:linear-gradient(transparent 0,#d99a00cc 30%,#dfa000 50%)}
+.card-title{padding:12px 12px 0;color:#fff;text-shadow:0 1px 6px #0007}
+.bionotate .card-title h3{font-size:28px;margin:0}
+.bionotate .card-title .role{font-size:18px;margin:0;letter-spacing:-.02em}
+.card-title .role span,.identity-top p span{margin-left:14px}
+.bionotate .card-content{padding:0 16px 20px}
+.bionotate .badge{font-size:19px;padding:4px 28px;border-radius:20px;margin-bottom:6px;background:#1aa64a}
+.bionotate .card.alert .badge,.identity-panel.alert .badge{background:#f43f46}
+.bionotate .card.unknown .badge,.identity-panel.unknown .badge{background:#f4c21b;color:#fff}
+.bionotate .card .metric{justify-content:flex-start;align-items:center;gap:10px;font-size:18px;padding:5px 0;border-bottom:1px solid #ffffffb3;letter-spacing:-.02em}
+.bionotate .card .metric span{flex:1}
+.bionotate .card .metric strong{font-size:23px;font-weight:600}
+.bionotate .card .metric small{font-size:18px;font-weight:400}
+.bionotate .card .metric.observed{border-bottom:0;margin-bottom:6px}
+.bionotate .card .metric .icon{width:30px;height:30px;color:#3ad46b;fill:#1aa64a33}
+.bionotate .card.alert .metric .icon{color:#fff;fill:#f43f46}
+.bionotate .card.unknown .metric .icon{color:#fff1b8;fill:#f4c21b}
+.bionotate .card .metric.observed .icon{fill:none;color:#fff}
+.bionotate .card button{width:100%;padding:8px;border-radius:10px;font-size:22px;color:#000;border:0}
+.bionotate .card.alert button{color:#f43f46;border:3px solid #f43f46;box-shadow:inset 0 0 0 2px #fff}
+.bionotate .card.unknown button{color:#f4c21b;border:3px solid #f4c21b;box-shadow:inset 0 0 0 2px #fff}
+.bionotate .card button:hover{background:#eef4ff}
+/* Status report */
+.bionotate .alerts{margin-top:28px;background:linear-gradient(#ffeeee,#fff 70%);border:2px solid #c8d8f4}
+.bionotate .alerts h2{color:#ef3b3b;font-size:30px}
+.bionotate .alerts h2 .icon{width:44px;height:44px;stroke-width:2}
+.bionotate #alert-count{color:#485d80}
+.bionotate .report-actions .icon{width:28px;height:28px}
+.refresh-action{display:inline-flex;align-items:center;gap:10px}
+.bionotate .refresh-action{background:linear-gradient(#f6fafe,#dce8fb);border:2px solid #b5cff1;color:#0472d3}
+.video-action{display:inline-flex;align-items:center;gap:12px}
+.video-action .icon:last-child{width:22px;height:22px}
+.video-action:hover{background:#055eac}
+.bionotate .alert-row{all:unset;box-sizing:border-box;display:grid;grid-template-columns:minmax(120px,170px) 30px minmax(0,1fr) auto;align-items:center;gap:16px;width:100%;margin-top:14px;padding:10px 16px;border-radius:10px;background:#fbe1e1;color:#070f4c;font-size:19px;cursor:pointer}
+.bionotate .alert-row:not(.alert){background:#fdf0da}
+.bionotate .alert-row:hover{filter:brightness(.97)}
+.bionotate .alert-row:focus-visible{outline:3px solid #0472d3;outline-offset:3px}
+.bionotate .alert-row strong{font-size:19px;border-right:1.5px solid #c73535;padding-right:12px}
+.bionotate .alert-row .icon{width:30px;height:30px;color:#ef3b3b}
+.bionotate .alert-row:not(.alert) .icon{color:#f4c21b}
+.alert-message{overflow-wrap:anywhere}
+.alert-when{display:flex;gap:20px;border-left:1.5px solid #c73535;padding-left:30px;white-space:nowrap}
+/* Crew profile */
+.body-panel{background:radial-gradient(ellipse at 35% 50%,#c4dcff,#f3f8ff 70%)}
+.body-caption{color:#8b9cb8;font-size:28px;line-height:1.2}
+.body-figure{display:grid;place-items:center;height:100%}
+.body-figure img{max-width:100%;max-height:430px;object-fit:contain}
+.body-figure.headshot img{max-height:300px;border-radius:24px;box-shadow:0 6px 20px #263f6433}
+.vital-callout{border-color:#b5cff1;background:#fff}
+.vital-callout.out{border-color:#ef3b3b;box-shadow:0 4px 14px #ef3b3b22}
+.vital-callout span{display:flex;align-items:center;gap:8px}
+.vital-callout span .icon{width:32px;height:32px;color:#ef3b3b}
+.vital-callout strong{display:flex;align-items:center;gap:8px}
+.trend-flag{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;margin-left:10px;color:#fff}
+.vital-callout .trend-flag{display:inline-grid;margin:0 0 0 10px}.vital-callout .trend-flag .icon{width:24px;height:24px;stroke-width:2.6;color:#fff}
+.trend-flag.high,.trend-flag.low{background:#ef3b3b}.trend-flag.ok{background:#1aa64a}
+.identity-panel{background:#fff}
+.identity-panel.alert{background:linear-gradient(#ffe9e9,#fff);border-color:#f7a3a6}
+.identity-panel.unknown{background:linear-gradient(#fff6dc,#fff);border-color:#f2d27a}
+.identity-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.identity-top h2{margin:0}
+.identity-top p{margin:4px 0 0;font-size:18px}
+.profile-facts{border-top-color:#f7a3a6}
+.profile-facts>div{display:flex;align-items:center;gap:10px}
+.profile-facts .icon{width:32px;height:32px}
+.profile-facts dd{font-size:24px;margin:0}
+.profile-facts dt{font-size:18px}
+.status-summary h2 .icon,.trends-panel h2 .icon,.profile-actions h2 .icon{width:36px;height:36px}
+.trends-panel h2,.profile-actions h2{display:flex;align-items:center;gap:10px;margin:0}
+.status-summary ul{list-style:none;padding:0}
+.status-summary li{display:flex;gap:14px;align-items:baseline}
+.status-summary li::before{content:"";width:13px;height:13px;border-radius:50%;flex-shrink:0;background:#f4c21b}
+.status-summary li.dot-red::before{background:#ef3b3b}.status-summary li.dot-green::before{background:#1aa64a}
+.vital-trend h3{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+.vital-trend h3 .icon{width:34px;height:34px;color:#ef3b3b}
+.vital-chart text{font:15px Carlito,sans-serif;fill:#070f4c}
+.profile-actions{display:grid;gap:10px;align-content:start}
+.profile-actions h3{font-size:18px;margin:8px 0 0}
+.action-row{display:flex;align-items:center;gap:12px;margin:0;padding:10px 14px;border-radius:10px;background:#eef4fd;font-size:18px}
+.action-link{color:#0472d3;font-weight:bold}
+.action-link .icon:last-child{width:20px;height:20px;margin-left:auto}
+.saved-reading.action-row{display:grid;grid-template-columns:1fr auto;border:0}
+@media(max-width:1200px){.bionotate .crew{grid-template-columns:repeat(2,minmax(0,317px))}.bionotate .summary{flex-wrap:wrap;row-gap:12px}.bionotate .stat{flex:1 1 230px}.bionotate #connection{margin-left:0}}
+@media(max-width:900px){.bionotate .alert-row{grid-template-columns:30px minmax(0,1fr)}.bionotate .alert-row strong{grid-column:1/-1;border:0}.alert-when{grid-column:1/-1;border:0;padding:0}}
+@media(max-width:650px){.bionotate .crew{grid-template-columns:minmax(0,317px)}.bionotate .stat{margin-left:24px;flex-basis:auto}.bionotate .stat span{font-size:20px}.profile-facts>div{gap:6px}}
+
+/* Warning = a reading slightly out of range: same yellow as Check required */
+.bionotate .card.warning::after{background:linear-gradient(transparent 0,#d99a00cc 30%,#dfa000 50%)}
+.bionotate .card.warning .badge,.identity-panel.warning .badge{background:#f4c21b;color:#fff}
+.bionotate .card.warning .metric .icon{color:#fff1b8;fill:#f4c21b}
+.bionotate .card.warning .metric.observed .icon{fill:none;color:#fff}
+.bionotate .card.warning button{color:#f4c21b;border:3px solid #f4c21b;box-shadow:inset 0 0 0 2px #fff}
+.identity-panel.warning{background:linear-gradient(#fff6dc,#fff);border-color:#f2d27a}
+.bionotate .alert-row.alert{background:#fbe1e1}.bionotate .alert-row.alert .icon{color:#ef3b3b}
+.bionotate .alert-row.warning{background:#fdf0da}.bionotate .alert-row.warning .icon{color:#f4c21b}

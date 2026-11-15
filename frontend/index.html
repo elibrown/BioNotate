@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AstroHealth · Crew monitoring</title>
-<link rel="stylesheet" href="/static/dashboard.css?v=bionotate-4">
-<script src="/static/dashboard.js?v=profile-1" defer></script>
+<link rel="stylesheet" href="/static/dashboard.css?v=figma-4">
+<script src="/static/dashboard.js?v=figma-5" defer></script>
 </head>
 <body class="bionotate">
 <aside class="sidebar" aria-label="AstroHealth navigation">
@@ -18,9 +18,9 @@
 </aside>
 <main>
 <header class="dashboard-header"><div><h1>Bionotate</h1><h2>Dashboard</h2></div><section id="summary" class="summary" aria-label="Crew summary"></section><p id="connection" role="status">Connecting…</p></header>
-<div class="section-heading crew-heading"><span>Crew overview</span><label>Show <select id="filter"><option value="all">All crew</option><option value="alert">Needs attention</option><option value="normal">Healthy</option><option value="unknown">Unknown</option></select></label></div>
+<div class="section-heading crew-heading"><span>Crew overview</span><label>Show <select id="filter"><option value="all">All crew</option><option value="normal">Within range</option><option value="unknown">Check required</option><option value="alert">Needs attention</option></select></label></div>
 <section id="crew" class="crew" aria-label="Crew members"></section>
-<section class="alerts" id="alerts-panel"><div class="section-heading"><h2><img src="/ui-assets/status-placeholder.svg" alt=""> Status Report <small id="alert-count"></small></h2><div class="report-actions"><button id="refresh">↻ Refresh data</button><a class="video-action" href="/upload">▷ Video analysis ↗</a></div></div><div id="alerts" aria-live="polite"></div></section>
+<section class="alerts" id="alerts-panel"><div class="section-heading"><h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 2.5 20.5h19L12 3.5Z"/><path d="M12 10v5m0 2.8h.01"/></svg> Status Report <small id="alert-count"></small></h2><div class="report-actions"><button id="refresh" class="refresh-action"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 10A7.8 7.8 0 0 0 5.6 7.2M4.5 4v4h4M4.5 14a7.8 7.8 0 0 0 13.9 2.8m1.1 3.2v-4h-4"/></svg> Refresh data</button><a class="video-action" href="/upload"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5 19.5 12 7 19.5Z"/></svg> Video analysis <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8.5 7H17v8.5"/></svg></a></div></div><div id="alerts" aria-live="polite"></div></section>
 <footer><span>Demo environment · Illustrative alert limits</span><a href="/measurements">Add manual measurement ↗</a><span>Refreshes every 15 seconds</span></footer>
 </main>
 <dialog id="detail" aria-labelledby="detail-title"><div class="section-heading"><span class="eyebrow">CREW MEMBER / DETAIL</span><button id="close">Close ×</button></div><div id="detail-content"></div></dialog>
