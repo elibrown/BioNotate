@@ -36,3 +36,8 @@ Thumbs.db
 # Uploaded videos (keep the folder, not the files)
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# MADA model weights and vector database must never enter Git
+services/mada/models/
+services/mada/chroma/
+services/mada/.chroma/

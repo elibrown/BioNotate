@@ -203,3 +203,15 @@ Python package markers and empty-directory placeholders are omitted from the tre
 ## Manual measurements
 
 Use **Manual measurements** in the sidebar to save one systolic/diastolic pressure, glucose, or temperature reading at a time. Saved values appear in member details; no manual alert rules are applied.
+
+## Model 3 — MADA emergency-assessment agent (prototype)
+
+An additional `/mada` UI provides a patient-linked emergency-assessment flow,
+including text/image/audio input, follow-up Checks, exact protocol steps,
+patient history and a descriptive trend report computed from stored health
+measurements. MADA itself runs as a **separate GPU-backed service**, included
+under `services/mada/`. It is **not** shipped with the existing Cloud Run CPU
+backend and **not** enabled on the public deployment by default.
+
+Read [`docs/MADA_INTEGRATION.md`](docs/MADA_INTEGRATION.md) for the API contract,
+local PowerShell setup, and critical access-control/database durability blockers.

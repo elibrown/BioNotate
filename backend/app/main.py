@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import seed
-from app.routers import audio, dashboard, measurements, predictions, video
+from app.routers import audio, dashboard, mada, measurements, predictions, video
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -33,6 +33,7 @@ app.include_router(audio.router)
 app.include_router(predictions.router)
 app.include_router(measurements.router)
 app.include_router(dashboard.router)
+app.include_router(mada.router)
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 app.mount("/ui-assets", StaticFiles(directory=FRONTEND_DIR.parent / "data" / "ui"), name="ui-assets")
 
@@ -67,3 +68,8 @@ def audio_page():
 @app.get("/measurements", include_in_schema=False)
 def measurements_page():
     return FileResponse(FRONTEND_DIR / "manual_metrics.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/mada", include_in_schema=False)
+def mada_page():
+    return FileResponse(FRONTEND_DIR / "mada.html", headers={"Cache-Control": "no-cache"})

@@ -77,6 +77,22 @@ CREATE TABLE IF NOT EXISTS measurements (
 );
 CREATE INDEX IF NOT EXISTS idx_measurements_trend
     ON measurements (astronaut_id, source, metric, measured_at);
+
+
+-- MADA retains the stateless agent's text/check conversation for follow-up
+-- turns. The patient must be a real roster member, distinct from responder.
+CREATE TABLE IF NOT EXISTS mada_assessments (
+    id                    TEXT PRIMARY KEY,
+    patient_id            TEXT NOT NULL REFERENCES astronauts(id),
+    responder_id          TEXT,
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL,
+    action                TEXT NOT NULL,
+    turns_json            TEXT NOT NULL,
+    latest_response_json  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mada_patient_history
+    ON mada_assessments (patient_id, updated_at);
 """
 
 # Normal ranges used for alerts: (source, metric) -> (low, high).
