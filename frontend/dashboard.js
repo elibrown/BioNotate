@@ -9,7 +9,7 @@ function metrics(member) {
 }
 function render() {
   const {crew, alerts} = snapshot;
-  $('summary').innerHTML = [['Crew members',crew.length],['Healthy',crew.filter(m => m.status === 'normal').length],['Needs attention',crew.filter(m => m.status === 'alert').length],['Unknown / stale',crew.filter(m => m.status === 'unknown' || m.stale).length]].map(([label,count]) => `<div class="stat"><span>${label}</span><strong>${count}</strong></div>`).join('');
+  $('summary').innerHTML = [['Crew members',crew.length],['Healthy',crew.filter(m => m.status === 'normal').length],['Needs attention',crew.filter(m => m.status === 'alert').length],['Unknown',crew.filter(m => m.status === 'unknown' || m.stale).length]].map(([label,count]) => `<div class="stat"><span>${label}</span><strong>${count}</strong></div>`).join('');
   const filtered = crew.filter(m => $('filter').value === 'all' || m.status === $('filter').value);
   $('crew').innerHTML = filtered.map(m => `<article class="card ${escapeHTML(m.status)}"><div class="card-top"><span class="avatar">${escapeHTML(m.name.split(' ').map(n => n[0]).join(''))}</span><span class="badge">${statusLabel(m.status)}</span></div><div><h3>${escapeHTML(m.name)}</h3><p class="role">${escapeHTML(m.role)} · ${escapeHTML(m.id)}</p></div>${metrics(m)}<p class="timestamp">${m.stale ? 'STALE · ' : ''}Observed ${escapeHTML(time(m.observed_at))}</p><button data-member="${escapeHTML(m.id)}">View health details ↗</button></article>`).join('') || '<p class="empty">No crew members in this view.</p>';
   $('alert-count').textContent = `${alerts.length} exceptions`;

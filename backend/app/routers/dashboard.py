@@ -115,8 +115,10 @@ def rising_alerts(member: CrewMember, rising_rules: dict) -> list[dict]:
     return alerts
 
 
-def is_stale(member: CrewMember, evaluation_time: datetime, max_age: int) -> bool:
+def is_stale(member: CrewMember, evaluation_time: datetime, max_age: int | None) -> bool:
     """Treat a member as stale when any included observation is too old."""
+    if max_age is None:
+        return False
     timestamps = [member.observed_at, *(p.observed_at for p in member.predictions)]
     return any((evaluation_time - timestamp).total_seconds() > max_age
                for timestamp in timestamps)
