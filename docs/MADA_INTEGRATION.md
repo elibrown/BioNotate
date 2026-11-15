@@ -48,7 +48,7 @@ A-02, but the assessment remains linked to Patient A-02.
    the `models` directory. The included Docker Compose file binds the MADA
    FastAPI port to `http://127.0.0.1:8010` and requires NVIDIA GPU Docker
    support. The llama.cpp server is internal to that Compose network.
-2. In a *new* PowerShell window, activate the existing BioNotate (`astro-health-monitor`) venv:
+2. In a *new* PowerShell window, activate the existing BioNotate venv:
 
    ```powershell
    cd "$HOME\Documents\astro-health-monitor\backend"
