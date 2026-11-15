@@ -141,11 +141,15 @@ class DatabaseCrewRepository:
         self.data_dir = data_dir or DATA_DIR
         self.stale_after_seconds = 300
 
-    def load_manual_measurements(self, astronaut_id):
-        rows = db.list_measurements(astronaut_id=astronaut_id, source="manual", limit=10000)
+    def load_manual_measurements(self, rows):
+        rows = [row for row in rows if row["source"] == "manual"]
         latest = {}
         for row in rows:
-            latest[row["metric"]] = {**row, "label": LABELS.get(row["metric"], row["metric"])}
+            latest[row["metric"]] = {
+                **{key: value for key, value in row.items() if key not in {
+                    "crew_id", "crew_name", "crew_role", "reading_rank", "prediction_version", "roster_populated",
+                }}, "label": LABELS.get(row["metric"], row["metric"]),
+            }
         return list(latest.values())
 
     def list_crew(self) -> list[CrewMember]:
@@ -153,19 +157,28 @@ class DatabaseCrewRepository:
         self.stale_after_seconds = rules["stale_after_seconds"]
         self.combined_rules = rules.get("combined", {})
         self.rising_rules = rules.get("rising", {})
-        if db.roster_is_empty():
-            # First run: fill the roster from the demo profiles.
-            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text(encoding='utf-8')))
+        readings = db.dashboard_readings(HISTORY_LENGTH)
+        if not readings or not readings[0]["roster_populated"]:
+            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text()))
+            readings = db.dashboard_readings(HISTORY_LENGTH)
+        crew = {}
+        for row in readings:
+            member = crew.setdefault(row["crew_id"], {
+                "id": row["crew_id"], "name": row["crew_name"],
+                "role": row["crew_role"], "rows": [],
+            })
+            if row["id"] is not None:
+                member["rows"].append(row)
 
         members = []
-        for astronaut in db.list_astronauts():
+        for astronaut in crew.values():
             metrics, observed = [], []
             for key, rule in rules["metrics"].items():
                 if key not in DB_METRICS:
                     continue
                 source, metric = DB_METRICS[key]
-                rows = db.list_measurements(astronaut_id=astronaut["id"], source=source,
-                                            metric=metric, context="live", limit=HISTORY_LENGTH)
+                rows = [row for row in astronaut["rows"] if row["context"] == "live"
+                        and row["metric"] == metric and (source is None or row["source"] == source)][-HISTORY_LENGTH:]
                 if rows:
                     observed.append(datetime.fromisoformat(rows[-1]["measured_at"]))
                 metrics.append(Metric(key=key, **rule,
@@ -178,31 +191,30 @@ class DatabaseCrewRepository:
                 # Oldest of the latest readings; no data at all = very old (stale).
                 observed_at=min(observed) if observed else datetime.fromtimestamp(0, timezone.utc),
                 metrics=metrics,
-                manual_measurements=self.load_manual_measurements(astronaut["id"]),
-                predictions=self._predictions(db, astronaut["id"], rules["predictions"]),
+                manual_measurements=self.load_manual_measurements(astronaut["rows"]),
+                predictions=self._predictions(astronaut["rows"], rules["predictions"]),
             ))
         return members
 
     @staticmethod
-    def _predictions(db, astronaut_id: str, rules: dict) -> list[Prediction]:
+    def _predictions(readings: list[dict], rules: dict) -> list[Prediction]:
         """Latest stored score (plus recent history) for each rules.json prediction."""
         results = []
         for key, rule in rules.items():
             if key not in DB_PREDICTIONS:
                 continue
             source, metric = DB_PREDICTIONS[key]
-            rows = db.list_measurements(astronaut_id=astronaut_id, source=source,
-                                        metric=metric, context="live", limit=HISTORY_LENGTH)
+            rows = [row for row in readings if row["source"] == source
+                    and row["metric"] == metric and row["context"] == "live"][-HISTORY_LENGTH:]
             if not rows:
                 continue
             latest = rows[-1]
-            run = db.get_prediction(latest["prediction_id"]) if latest["prediction_id"] else None
             results.append(Prediction(
                 id=str(latest["prediction_id"] or latest["id"]),
                 target=key,
                 score=latest["value"],
                 observed_at=datetime.fromisoformat(latest["measured_at"]),
-                model_version=(run or {}).get("model_version") or source,
+                model_version=latest.get("prediction_version") or source,
                 history=[r["value"] for r in rows],
                 **rule,
             ))

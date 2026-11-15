@@ -1,4 +1,4 @@
-import logging
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import seed
+from app import db
 from app.routers import audio, dashboard, mada, measurements, predictions, video
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
@@ -14,10 +14,8 @@ FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Merge the reviewed shared database; preserve existing readings.
-    added = seed.initialize()
-    if added:
-        logging.getLogger("uvicorn.error").info("Database initialization: %s", added)
+    db.init_db()
+    await asyncio.to_thread(db.dashboard_readings, 60)
     yield
 
 

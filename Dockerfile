@@ -7,7 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app/backend
 COPY backend/requirements.txt ./requirements.txt
 COPY backend/vendor ./vendor
-RUN python -m pip install -r requirements.txt
+# The voice dependency builds from source on ARM (Apple Docker).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && python -m pip install -r requirements.txt \
+    && apt-mark manual libstdc++6 \
+    && apt-get purge -y --auto-remove build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 10001 astro \
     && useradd --uid 10001 --gid astro --create-home astro \
@@ -18,8 +24,6 @@ COPY backend/app ./app
 COPY frontend /app/frontend
 # Include only public demo fixtures, never private/captured health data.
 COPY data/astronauts.json data/metrics.json data/predictions.json data/rules.json /app/data/
-# The team's shared database rows, loaded into an empty database on startup.
-COPY data/seed /app/data/seed/
 # Database definitions and generic metric metadata.
 COPY data/schema /app/data/schema/
 COPY data/biomarkers.json /app/data/

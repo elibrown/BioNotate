@@ -46,3 +46,21 @@ test('an explicit metric warning produces the yellow Check required state', () =
   assert.equal(data.crew[0].display, 'warning');
   assert.equal(data.alerts[0].severity, 'warning');
 });
+
+test('navigation renders the saved dashboard before the network responds', () => {
+  const elements = new Map();
+  const saved = {at:Date.now(), data:{generated_at:new Date().toISOString(), alerts:[], crew:[{
+    id:'A-01', name:'Reid Wiseman', role:'Commander', status:'normal', metrics:[], observed_at:new Date().toISOString(),
+  }]}};
+  const browser = vm.createContext({
+    document:{getElementById(id) {
+      if (!elements.has(id)) elements.set(id, {value:'all', innerHTML:'', addEventListener(){}});
+      return elements.get(id);
+    }, addEventListener(){}},
+    sessionStorage:{getItem:key => key === 'bionotate.dashboard' ? JSON.stringify(saved) : null},
+    fetch:() => new Promise(() => {}), setInterval(){}, AbortSignal,
+  });
+  vm.runInContext(source, browser);
+  assert.match(elements.get('crew').innerHTML, /Reid Wiseman/);
+  assert.match(elements.get('connection').textContent, /Saved data.*Refreshing/);
+});

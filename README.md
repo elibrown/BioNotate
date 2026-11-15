@@ -15,20 +15,27 @@ flowchart LR
     Manual[Manual entry] --> M[(measurements)]
     Models[Video / audio models] --> P[(predictions)]
     Models --> M
-    Snapshot[Shared demo database] --> Merge[Startup merge and deduplication]
-    Merge --> M
-    Merge --> P
-    Merge --> A[(astronauts)]
+    Import[One-time migration of existing tables] --> M
+    Import --> P
+    Import --> A[(astronauts)]
 ```
 
-The reviewed `data/seed/shared_demo.db` contains 4 crew, 10 predictions and 616
-measurements: 387 seed readings, 220 imported biology values and 9 labeled demo
-vitals. Startup remaps conflicting prediction IDs and adds missing measurements;
-it does not overwrite local records. The canonical CSV and demo input are kept
-under `data/research/` and `data/demo_vitals.json`. A-02 has an intentional synthetic
-HR reading of 105 bpm to demonstrate yellow “Check required.”
+The shared Turso database contains the migrated crew, predictions and measurements,
+including the biology values and their original provenance. No database snapshots,
+CSV copies or automatic seed imports are packaged in the repository or image.
+Schema and metric/rule configuration remain in Git. New readings go through the API.
 
 ### Data visualization
+
+Both deployments query the same database:
+
+```mermaid
+flowchart LR
+    Local[Docker localhost] --> LocalAPI[Docker Python API]
+    Web[bionotate.web.app] --> CloudAPI[Cloud Run Python API]
+    LocalAPI --> Shared[(Turso: astronauts / predictions / measurements)]
+    CloudAPI --> Shared
+```
 
 ```mermaid
 flowchart LR
@@ -61,13 +68,28 @@ Graphs use equal observation spacing and UTC `YYYYMMDD HH:mm:ss` labels/tooltips
 Mission-phase readings keep their phase labels instead of invented dates; the
 same metric panel can switch between recorded time and mission phases.
 
-The SQLite snapshot is tracked in Git and copied into Docker. Pull this branch
-and rebuild/restart Docker to load the same baseline. Runtime uploads stay in the
-working database volume. The snapshot is reference data, not live synchronization.
+Docker and Cloud Run use the same Turso database when configured with the same
+`TURSO_DATABASE_URL` and backend `TURSO_AUTH_TOKEN`. Graphs query those shared
+measurements through the API; they do not read a CSV. Refresh to see new readings.
+Dashboard reads are cached for five seconds and invalidated after local API writes.
+Changes from other deployments appear on the next refresh after that window.
+The browser restores a session snapshot for up to one minute during navigation,
+labels it as saved data, and refreshes it immediately in the background.
 
 ## Run with Docker
 
 From the repository root with Docker running:
+
+Copy `.env.example` to `.env` and obtain a backend token from the Turso account
+owner through a private channel. `.env` is ignored by Git and excluded from Docker
+images. Each developer can have a separate revocable token for the same database.
+Never put database tokens in the frontend or commit them.
+
+Cloud deployment uses GitHub Actions secrets `TURSO_DATABASE_URL` and
+`TURSO_AUTH_TOKEN`; the workflow passes them to Cloud Run at deployment.
+The account has overages disabled. Keep the free plan and do not enable paid
+usage; exhausting the free allowance can make queries fail rather than add capacity.
+
 
 ```bash
 # Development: Python reload, mounted frontend and demo data
@@ -124,8 +146,10 @@ classDiagram
 
 ## Prediction storage (SQLite)
 
-Everything is stored in one SQLite file, `backend/astrohealth.db` (created on
-first use, not committed to git; set `ASTROHEALTH_DB` to use another path).
+Production and Docker use the shared Turso SQLite-compatible database.
+Without cloud settings, `ASTROHEALTH_DB` selects an isolated local SQLite file for
+offline tests. Supplying only one cloud setting is an error; connection failures
+never silently fall back to a different database.
 Database access is in `backend/app/db.py`; SQL definitions are in `data/schema/production.sql`. There are three tables:
 
 - **astronauts**: crew IDs, names and roles.
@@ -177,11 +201,6 @@ A measurement looks like:
 and the `measurements` it saved.
 
 Tests: from `backend/`, run `python -m pytest -q`.
-
-**Shared data.** Startup merges the reviewed `data/seed/shared_demo.db` baseline.
-Repeat imports add no duplicates, and existing local records are preserved.
-The JSON seed remains a fallback for databases without a packaged snapshot.
-Do not delete a working database to apply an updated baseline.
 
 The dashboard (`GET /api/dashboard`) reads this database through
 `DatabaseCrewRepository` in `backend/app/dashboard/repository.py`. `DB_METRICS`

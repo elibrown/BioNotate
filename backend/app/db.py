@@ -23,15 +23,16 @@ Three tables:
 metric) is what lets each model bring its own metrics without touching the
 schema, and makes "HR for astronaut A-07 over the last week" one simple query.
 
-- The database is ONE file: backend/astrohealth.db (git-ignored).
-  Set the ASTROHEALTH_DB environment variable to use another path (tests do).
-- We use Python's built-in sqlite3 module: no extra install, no ORM.
+- TURSO_DATABASE_URL and TURSO_AUTH_TOKEN select the shared cloud database.
+- Without cloud settings, ASTROHEALTH_DB selects local SQLite for offline tests.
 - SQL schema definitions live in data/schema; this module owns production storage.
 """
 
 import json
 import os
 import sqlite3
+import threading
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -68,9 +69,19 @@ def _connect() -> sqlite3.Connection:
     A new connection per call keeps things simple and thread-safe
     (FastAPI runs normal `def` routes in a thread pool).
     """
-    path = _db_path()
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row             # rows behave like dicts
+    url = os.environ.get("TURSO_DATABASE_URL", "").strip()
+    token = os.environ.get("TURSO_AUTH_TOKEN", "").strip()
+    if bool(url) != bool(token):
+        raise RuntimeError("Set both TURSO_DATABASE_URL and TURSO_AUTH_TOKEN")
+    if url:
+        import turso_serverless
+        conn = turso_serverless.connect(url, auth_token=token)
+        conn.row_factory = turso_serverless.Row
+        path = url
+    else:
+        path = _db_path()
+        conn = sqlite3.connect(path)
+        conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")   # SQLite needs this per connection
     if str(path) not in _initialized:
         conn.executescript(SCHEMA)
@@ -138,6 +149,58 @@ def list_astronauts() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+_dashboard_cache = None
+_dashboard_lock = threading.RLock()
+
+
+def invalidate_dashboard_cache():
+    global _dashboard_cache
+    with _dashboard_lock:
+        _dashboard_cache = None
+
+
+def dashboard_readings(history_length: int) -> list[dict]:
+    """Reuse recent reads for five seconds; committed local writes invalidate them."""
+    global _dashboard_cache
+    key = (os.environ.get("TURSO_DATABASE_URL"), str(_db_path()), history_length)
+    with _dashboard_lock:
+        if _dashboard_cache and _dashboard_cache[0] == key and time.monotonic() - _dashboard_cache[1] < 5:
+            return [dict(row) for row in _dashboard_cache[2]]
+        rows = _fetch_dashboard_readings(history_length)
+        _dashboard_cache = (key, time.monotonic(), rows)
+        return [dict(row) for row in rows]
+
+
+def _fetch_dashboard_readings(history_length: int) -> list[dict]:
+    """Fetch roster, recent readings and model versions in one database round trip."""
+    conn = _connect()
+    try:
+        return [dict(row) for row in conn.execute("""
+            WITH crew AS (
+                SELECT id, name, role FROM astronauts
+                UNION
+                SELECT DISTINCT astronaut_id, astronaut_id, NULL FROM measurements
+                WHERE astronaut_id IS NOT NULL
+                  AND astronaut_id NOT IN (SELECT id FROM astronauts)
+            ), recent AS (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY astronaut_id, source, metric
+                    ORDER BY measured_at DESC, phase_index DESC, id DESC
+                ) AS reading_rank
+                FROM measurements WHERE context = 'live' OR source = 'manual'
+            )
+            SELECT crew.id AS crew_id, crew.name AS crew_name, crew.role AS crew_role,
+                   recent.*, predictions.model_version AS prediction_version,
+                   EXISTS(SELECT 1 FROM astronauts) AS roster_populated
+            FROM crew
+            LEFT JOIN recent ON recent.astronaut_id = crew.id AND reading_rank <= ?
+            LEFT JOIN predictions ON predictions.id = recent.prediction_id
+            ORDER BY crew.id, measured_at, phase_index, recent.id
+        """, (history_length,)).fetchall()]
+    finally:
+        conn.close()
+
+
 def add_astronauts(astronauts: list[dict], *, update_existing: bool = False) -> None:
     """Add roster entries; optionally refresh metadata for configured IDs."""
     conn = _connect()
@@ -150,63 +213,7 @@ def add_astronauts(astronauts: list[dict], *, update_existing: bool = False) -> 
             [{"role": None, **a} for a in astronauts],
         )
     conn.close()
-
-
-# --------------------------------------------------------------------------
-# Shared seed data (data/seed/astrohealth_seed.json, committed to git)
-# --------------------------------------------------------------------------
-
-# Parents before children, so prediction_id in measurements always points
-# at a row that is already there.
-SEED_TABLES = ("astronauts", "predictions", "measurements")
-
-
-def dump_tables() -> dict[str, list[dict]]:
-    """Every row of every seed table, sorted by id (a stable order for git)."""
-    conn = _connect()
-    data = {
-        table: [dict(r) for r in conn.execute(f"SELECT * FROM {table} ORDER BY id")]
-        for table in SEED_TABLES
-    }
-    conn.close()
-    return data
-
-
-def has_data() -> bool:
-    """True if there is at least one prediction or measurement."""
-    conn = _connect()
-    row = conn.execute(
-        "SELECT 1 FROM predictions UNION ALL SELECT 1 FROM measurements LIMIT 1"
-    ).fetchone()
-    conn.close()
-    return row is not None
-
-
-def load_tables(data: dict[str, list[dict]]) -> dict[str, int]:
-    """
-    Insert rows from dump_tables() output, keeping their ids, all in one
-    transaction. Rows whose id already exists are skipped. Columns the
-    table doesn't have are ignored; missing ones get their default.
-    Returns how many rows were added per table.
-    """
-    conn = _connect()
-    added = {}
-    with conn:
-        for table in SEED_TABLES:
-            columns = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
-            count = 0
-            for row in data.get(table, []):
-                row = {k: v for k, v in row.items() if k in columns}
-                cols = ", ".join(row)
-                marks = ", ".join("?" for _ in row)
-                cur = conn.execute(
-                    f"INSERT OR IGNORE INTO {table} ({cols}) VALUES ({marks})",
-                    list(row.values()),
-                )
-                count += cur.rowcount
-            added[table] = count
-    conn.close()
-    return added
+    invalidate_dashboard_cache()
 
 
 def roster_is_empty() -> bool:
@@ -325,6 +332,7 @@ def save_prediction(
                 prediction_id=prediction_id,
             )
     conn.close()
+    invalidate_dashboard_cache()
     saved = get_prediction(prediction_id)
     saved["measurements"] = list_measurements(prediction_id=prediction_id, limit=100_000)
     return saved
@@ -384,6 +392,7 @@ def acknowledge_alert(prediction_id: int) -> dict | None:
             (prediction_id,),
         )
     conn.close()
+    invalidate_dashboard_cache()
     return get_prediction(prediction_id)
 
 
@@ -430,6 +439,7 @@ def add_measurement(
         )
     row = conn.execute("SELECT * FROM measurements WHERE id = ?", (new_id,)).fetchone()
     conn.close()
+    invalidate_dashboard_cache()
     return dict(row)
 
 
