@@ -1,5 +1,8 @@
 # BioNotate
 
+This solution was developed as part of NASA Space Apps Tel Aviv 2026. The event was led by the Space Engineering Center (SEC) and SpaceTAU at Tel Aviv University, in partnership with the Rakia Mission and Space Campus IL.
+
+
 **Live site: https://bionotate.web.app** (public, no sign-in)
 
 ![BioNotate demo: a face video is uploaded for one crew member, analysed, and shown on the dashboard](docs/BioNotate_demo.gif)
