@@ -62,7 +62,7 @@ class EndToEndTests(unittest.TestCase):
     def test_before_any_upload_everyone_is_unknown(self):
         snapshot, crew = self.crew()
         self.assertEqual(set(crew), {"A-01", "A-02", "A-03", "A-04"})   # roster seeded
-        self.assertEqual(crew["A-01"]["name"], "Alex Morgan")
+        self.assertEqual(crew["A-01"]["name"], "Reid Wiseman")
         self.assertTrue(all(m["status"] == "unknown" for m in crew.values()))
         self.assertEqual(snapshot["alerts"], [])
 

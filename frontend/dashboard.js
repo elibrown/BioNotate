@@ -48,11 +48,12 @@ const ICON_PATHS = {
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 const metricIcon = key => key === 'heart_rate' ? 'heart' : key === 'respiratory_rate' ? 'lungs' : 'wave';
 
-// Photos exported from the Figma design live in data/ui/crew/<crew id>.png.
+// Crew photos (public-domain NASA images, see data/ui/crew/CREDITS.md):
+// data/ui/crew/<crew id>.jpg is the headshot, <crew id>-body.jpg the full-body photo.
 const PLACEHOLDER = '/ui-assets/portrait-placeholder.svg';
-const portrait = id => `/ui-assets/crew/${encodeURIComponent(id)}.png`;
+const portrait = id => `/ui-assets/crew/${encodeURIComponent(id)}.jpg`;
 const photoFallback = `onerror="this.onerror=null;this.src='${PLACEHOLDER}';this.parentElement.classList.add('no-photo')"`;
-const BODY_IMAGES = {'A-01': '/ui-assets/crew/body.png'};
+const BODY_IMAGES = Object.fromEntries(['A-01', 'A-02', 'A-03', 'A-04'].map(id => [id, `/ui-assets/crew/${id}-body.jpg`]));
 
 const vital = (member, key, label, unit) => member.metrics.find(m => m.key === key) || {key, label, value:null, unit, history:[]};
 const outOfRange = m => m.value != null && m.lower != null && m.upper != null && (m.value > m.upper || m.value < m.lower);
