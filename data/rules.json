@@ -7,6 +7,12 @@
       "lower": 50,
       "upper": 100
     },
+    "respiratory_rate": {
+      "label": "Respiratory rate",
+      "unit": "br/min",
+      "lower": 12,
+      "upper": 20
+    },
     "oxygen": {
       "label": "Oxygen saturation",
       "unit": "%",
