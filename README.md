@@ -2,6 +2,9 @@
 
 **Live site: https://bionotate.web.app** (public, no sign-in)
 
+**Demo video:** [BioNotate_demo.mp4](docs/BioNotate_demo.mp4) (56 s, no sound): a face video
+uploaded for one crew member, analysed, and shown on the dashboard.
+
 Crew health monitoring and early risk detection for the NASA Space Apps Challenge 2026,
 [Health Monitoring Software](https://www.spaceappschallenge.org/2026/challenges/health-monitoring-software/)
 challenge, by team BioNotate. A crew member records a short face video or a few voice
@@ -119,7 +122,7 @@ backend/tests/      unit and end-to-end tests
 frontend/           HTML/CSS/JS for every page
 data/               rules.json (alert ranges), biomarkers.json, seed/, schema/, ui/ (crew photos, icons)
 services/mada/      MADA emergency model service (GPU, run separately)
-docs/               MADA integration notes and diagrams
+docs/               demo video, MADA integration notes and diagrams
 ```
 
 ## Credits
