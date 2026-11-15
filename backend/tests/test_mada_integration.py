@@ -1,4 +1,4 @@
-"""AstroHealth <-> MADA contract tests, without a GPU or remote model server."""
+"""BioNotate <-> MADA contract tests, without a GPU or remote model server."""
 import os
 import unittest
 from pathlib import Path

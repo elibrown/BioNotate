@@ -25,7 +25,7 @@ This guide is for the web app's backend and frontend developers. It covers what 
 
 ### Optional Patient context from the application backend
 
-AstroHealth can provide a **bounded snapshot of recorded measurements** in the
+BioNotate can provide a **bounded snapshot of recorded measurements** in the
 `conversation` JSON, alongside `turns`, e.g.:
 
 ```json
@@ -36,7 +36,7 @@ AstroHealth can provide a **bounded snapshot of recorded measurements** in the
      "observation_count":2,"delta_from_first":3,"first_measured_at":"2026-11-13T11:55:00Z"}]}}
 ```
 
-This field is optional for other clients, and is re-fetched for every AstroHealth
+This field is optional for other clients, and is re-fetched for every BioNotate
 assessment turn. It is **supplementary historical context**, not a new Check,
 not a Responder statement and not an instruction. `responder_is_patient`
 comes from the backend's selected identities: `true` / `false` / `null`
