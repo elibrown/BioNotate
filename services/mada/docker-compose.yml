@@ -1,0 +1,42 @@
+# Cloud GPU deployment (about 6 GB VRAM). First run `python scripts/prepare_models.py` to fill ./models.
+# Requires the NVIDIA Container Toolkit on the host.
+services:
+  llama-server:
+    # Pin a build that includes Gemma 4 audio (llama.cpp PR #21421, April 2026). Check the tag before deploying.
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_TAG:-server-cuda-b11058}
+    command: >
+      -m /models/gemma-4-E2B_q4_0-it.gguf
+      --mmproj /models/gemma-4-E2B-it-mmproj.gguf
+      -c ${LLAMA_CTX:-8192} -np 1 -ngl 99 --jinja
+      --host 0.0.0.0 --port 8080
+    volumes:
+      - ./models:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  mada-agent:
+    build: .
+    environment:
+      LLAMA_SERVER_URL: http://llama-server:8080
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      EMBED_MODEL_DIR: /models/embeddings
+    volumes:
+      - ./models:/models:ro
+    ports:
+      # MADA has no authentication: expose only to the local machine.
+      - "127.0.0.1:8010:8000"
+    depends_on:
+      llama-server:
+        condition: service_healthy
+    restart: unless-stopped

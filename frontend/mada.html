@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AstroHealth · MADA Emergency Support</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <link rel="stylesheet" href="/static/mada.css">
+  <script src="/static/mada.js" defer></script>
+</head>
+<body class="bionotate mada-page">
+<aside class="sidebar" aria-label="AstroHealth navigation">
+  <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth">A</a>
+  <nav class="rail-nav" aria-label="Main navigation">
+    <a class="rail-link" href="/" aria-label="Crew dashboard" data-tooltip="Crew dashboard">CR</a>
+    <a class="rail-link" href="/upload" aria-label="Video analysis" data-tooltip="Video analysis">VI</a>
+    <a class="rail-link" href="/audio" aria-label="Voice biomarkers" data-tooltip="Voice biomarkers">VO</a>
+    <a class="rail-link" href="/measurements" aria-label="Manual measurements" data-tooltip="Manual measurements">ME</a>
+    <a class="rail-link" href="/mada" aria-label="Emergency support" data-tooltip="Emergency support" aria-current="page">MD</a>
+  </nav>
+  <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts">!</a>
+</aside>
+<main class="mada-main">
+  <header class="mada-hero">
+    <div><p class="eyebrow">MODEL 03 / CLINICAL SUPPORT</p><h1>MADA Emergency Support</h1>
+      <p>Structured emergency assessment with patient-linked history and objective health trends.</p></div>
+    <span id="mada-status" class="mada-status" role="status">Checking service…</span>
+  </header>
+  <div class="mada-disclaimer" role="note">
+    <strong>Research prototype — not validated for medical care.</strong>
+    In an actual emergency, contact the Crew Medical Officer immediately. Model output is decision support only.
+    This demo saves assessment text and Check answers in the AstroHealth database; do not enter real patient information into a public demo.
+  </div>
+
+  <div class="mada-layout">
+    <div class="mada-primary">
+      <section class="mada-panel" aria-labelledby="mada-patient-heading">
+        <div class="mada-panel-header"><p class="eyebrow">01 · IDENTITY</p><h2 id="mada-patient-heading">Identify the Patient</h2></div>
+        <div class="mada-fields">
+          <label>Patient from registered crew roster <span class="required">(required)</span>
+            <select id="mada-patient" required><option value="">Loading patients…</option></select>
+          </label>
+          <label>Responder identifier <span class="optional">(optional; may be someone else)</span>
+            <input id="mada-responder" type="text" maxlength="64" placeholder="e.g. A-01 or crew member name">
+          </label>
+        </div>
+        <p id="mada-patient-detail" class="mada-caption">Choose the person receiving medical attention, not necessarily the person operating this page.</p>
+      </section>
+
+      <section class="mada-panel" aria-labelledby="mada-assessment-heading">
+        <div class="mada-panel-header mada-inline"><div><p class="eyebrow">02 · ASSESSMENT</p><h2 id="mada-assessment-heading">Describe the emergency</h2></div>
+          <button type="button" id="mada-new">Start new</button></div>
+        <form id="mada-form">
+          <label class="mada-full">What is happening? <span class="optional">Provide symptoms or answer the requested Checks.</span>
+            <textarea id="mada-text" rows="4" maxlength="4000" placeholder="Describe the Patient's situation, symptoms and recent events…"></textarea>
+          </label>
+          <div id="mada-checks" class="mada-checks" hidden aria-live="polite"></div>
+          <div class="mada-fields mada-attachments">
+            <label>Optional image <span class="optional">JPEG, PNG or WebP · max 10 MB</span>
+              <input id="mada-image" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></label>
+            <label>Optional audio <span class="optional">max 30 seconds, 10 MB</span>
+              <input id="mada-audio" type="file" accept=".wav,.webm,.ogg,.mp3,.m4a,.mp4,audio/*"></label>
+          </div>
+          <div class="mada-record-controls"><button type="button" id="mada-record">Record audio</button>
+            <button type="button" id="mada-stop" disabled>Stop recording</button>
+            <span id="mada-timer" class="mada-caption">00:00 / 00:30</span></div>
+          <audio id="mada-preview" controls hidden></audio>
+          <div class="mada-form-footer"><span id="mada-message" role="status" aria-live="polite">Choose a patient to begin.</span>
+            <button type="submit" id="mada-submit" class="mada-primary-button">Analyze emergency</button></div>
+        </form>
+      </section>
+
+      <section id="mada-result" class="mada-panel mada-result" hidden aria-labelledby="mada-result-heading">
+        <div class="mada-panel-header mada-inline"><div><p class="eyebrow">03 · GUIDANCE</p><h2 id="mada-result-heading">MADA assessment</h2></div>
+          <span id="mada-severity" class="mada-status"></span></div>
+        <div id="mada-gcs-alert" class="mada-warning" hidden></div>
+        <div class="mada-steps"><h3>Immediate first steps</h3><ol id="mada-first-steps"></ol></div>
+        <p id="mada-model-message" role="alert" hidden></p>
+        <div id="mada-protocols"></div>
+        <p id="mada-no-match" hidden></p>
+        <details class="mada-details"><summary>Model rationale and unconfirmed observations (Crew Medical Officer)</summary>
+          <p id="mada-rationale"></p><ul id="mada-features"></ul></details>
+        <p id="mada-result-disclaimer" class="mada-caption"></p>
+      </section>
+    </div>
+
+    <aside class="mada-secondary">
+      <section class="mada-panel" aria-labelledby="mada-trend-heading">
+        <div class="mada-panel-header"><p class="eyebrow">PATIENT RECORD</p><h2 id="mada-trend-heading">Measurement trends</h2></div>
+        <p class="mada-caption">Data retrieved from AstroHealth. Each model run counts once. Changes are descriptive, not a diagnosis.</p>
+        <p id="mada-context-info" class="mada-caption">When you submit an assessment, up to 12 recent metrics for the selected Patient are sent to MADA as historical context, not as a diagnosis.</p>
+        <p id="mada-trend-summary" class="mada-caption">Select a patient to view measurements.</p>
+        <div id="mada-trends" class="mada-trends"></div>
+      </section>
+      <section class="mada-panel" aria-labelledby="mada-history-heading">
+        <div class="mada-panel-header"><p class="eyebrow">PATIENT RECORD</p><h2 id="mada-history-heading">Assessment history</h2></div>
+        <p class="mada-caption">Assessments are linked to the selected Patient, even if someone else responded.</p>
+        <div id="mada-history" class="mada-history">Select a patient to view history.</div>
+      </section>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,3 @@
+# The web app holds the conversation; the service is stateless
+
+An Assessment takes several Rounds, so something has to remember the earlier messages. The web app sends the whole conversation on every call, with an ISO-8601 timestamp on each turn, and the service keeps nothing between requests. This survives restarts and horizontal scaling without a session store. It also lets the GCS trend rules, such as "a 1-point drop sustained for 30 minutes", run over the full history. It means the service never persists medical data, so images, audio and symptom text aren't logged or stored. We use plain REST. A WebSocket would only add streaming, which this response shape doesn't need.
