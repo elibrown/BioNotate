@@ -51,7 +51,7 @@ A-02, but the assessment remains linked to Patient A-02.
 2. In a *new* PowerShell window, activate the existing BioNotate venv:
 
    ```powershell
-   cd "$HOME\Documents\astro-health-monitor\backend"
+   cd "$HOME\Documents\BioNotate\backend"
    .\.venv\Scripts\Activate.ps1
    $env:MADA_SERVICE_URL = "http://127.0.0.1:8010"
    $env:MADA_DEMO_ENABLED = "1"
