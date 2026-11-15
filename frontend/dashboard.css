@@ -161,7 +161,7 @@ body{padding-left:74px}
 .bionotate .stat strong{font-size:26px;font-weight:600;margin-left:10px}
 .bionotate #connection{max-width:none;font-size:18px;color:#070f4c;border-left:2px solid #070f4c;padding:6px 0 6px 12px;margin:0 0 0 auto}
 /* Crew cards */
-.bionotate .card{background:#0b3fb0;border:0;display:flex;flex-direction:column}
+.bionotate .crew .card{background:#0b3fb0;border:0;display:flex;flex-direction:column}
 .bionotate .crew-portrait{inset:0 0 auto;height:78%;object-position:top center}
 .portrait-initials{display:none}
 .bionotate .card.no-photo .portrait-initials{display:block}
@@ -264,3 +264,12 @@ body{padding-left:74px}
 .identity-panel.warning{background:linear-gradient(#fff6dc,#fff);border-color:#f2d27a}
 .bionotate .alert-row.alert{background:#fbe1e1}.bionotate .alert-row.alert .icon{color:#ef3b3b}
 .bionotate .alert-row.warning{background:#fdf0da}.bionotate .alert-row.warning .icon{color:#f4c21b}
+/* Voice recording page: readable buttons and progress on the light panel */
+.input-page .audio-page button{background:#fff;color:#0472d3;border:1px solid #a9c4e6;border-radius:10px;padding:12px 18px;font-weight:700;text-align:center}
+.input-page .audio-page button:hover:not(:disabled){background:#e1edff}
+.input-page .audio-page #audio-record,.input-page .audio-page #audio-next,.input-page .audio-page #audio-send{background:#0472d3;color:#fff;border-color:#0472d3}
+.input-page .audio-page #audio-record:hover:not(:disabled),.input-page .audio-page #audio-next:hover:not(:disabled),.input-page .audio-page #audio-send:hover:not(:disabled){background:#055eac}
+.input-page .audio-page button:disabled{opacity:.45;cursor:not-allowed}
+.input-page .audio-page #audio-progress-bar{accent-color:#0472d3;height:10px}
+.input-page .audio-page .muted,.input-page .audio-page label,.input-page .audio-page p{color:#334e7c}
+.input-page .audio-page h2,.input-page .audio-page h3{color:#070f4c}
