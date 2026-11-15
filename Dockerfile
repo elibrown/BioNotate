@@ -20,6 +20,7 @@ COPY frontend /app/frontend
 COPY data/astronauts.json data/metrics.json data/predictions.json data/rules.json /app/data/
 # The team's shared database rows, loaded into an empty database on startup.
 COPY data/seed /app/data/seed/
+COPY data/ui /app/data/ui/
 
 USER astro
 EXPOSE 8000
