@@ -69,7 +69,7 @@ class DemoCrewRepository:
         self.stale_after_seconds = 300
 
     def read(self, name):
-        return json.loads((self.directory / f"{name}.json").read_text())
+        return json.loads((self.directory / f"{name}.json").read_text(encoding='utf-8'))
 
     def list_crew(self) -> list[CrewMember]:
         astronauts = self.read("astronauts")
@@ -108,10 +108,13 @@ class DemoCrewRepository:
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 # Dashboard metric key (in data/rules.json) -> where it is stored in the
-# measurements table: (source, metric). Rule metrics with no entry here
+# measurements table: (optional source, metric). None selects any live source.
+# Research mission-phase values never substitute for current vitals.
+# Rule metrics with no entry here
 # (e.g. "oxygen": no model measures it yet) are left off the dashboard.
 DB_METRICS = {
-    "heart_rate": ("cardioresp", "hr_bpm"),
+    "heart_rate": (None, "hr_bpm"),
+    "respiratory_rate": (None, "respi_rate"),
 }
 
 # Same idea for model scores shown under "Model predictions": key in
@@ -146,13 +149,13 @@ class DatabaseCrewRepository:
         return list(latest.values())
 
     def list_crew(self) -> list[CrewMember]:
-        rules = json.loads((self.data_dir / "rules.json").read_text())
+        rules = json.loads((self.data_dir / "rules.json").read_text(encoding='utf-8'))
         self.stale_after_seconds = rules["stale_after_seconds"]
         self.combined_rules = rules.get("combined", {})
         self.rising_rules = rules.get("rising", {})
         if db.roster_is_empty():
             # First run: fill the roster from the demo profiles.
-            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text()))
+            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text(encoding='utf-8')))
 
         members = []
         for astronaut in db.list_astronauts():
@@ -162,7 +165,7 @@ class DatabaseCrewRepository:
                     continue
                 source, metric = DB_METRICS[key]
                 rows = db.list_measurements(astronaut_id=astronaut["id"], source=source,
-                                            metric=metric, limit=HISTORY_LENGTH)
+                                            metric=metric, context="live", limit=HISTORY_LENGTH)
                 if rows:
                     observed.append(datetime.fromisoformat(rows[-1]["measured_at"]))
                 metrics.append(Metric(key=key, **rule,
@@ -189,7 +192,7 @@ class DatabaseCrewRepository:
                 continue
             source, metric = DB_PREDICTIONS[key]
             rows = db.list_measurements(astronaut_id=astronaut_id, source=source,
-                                        metric=metric, limit=HISTORY_LENGTH)
+                                        metric=metric, context="live", limit=HISTORY_LENGTH)
             if not rows:
                 continue
             latest = rows[-1]

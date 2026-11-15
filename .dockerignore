@@ -21,3 +21,6 @@ data/*
 !data/predictions.json
 !data/rules.json
 !data/seed
+!data/ui
+!data/schema
+!data/biomarkers.json

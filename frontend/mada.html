@@ -3,99 +3,106 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AstroHealth · MADA Emergency Support</title>
-  <link rel="stylesheet" href="/static/dashboard.css">
-  <link rel="stylesheet" href="/static/mada.css">
-  <script src="/static/mada.js" defer></script>
+  <title>AstroHealth · Emergency support</title>
+  <link rel="stylesheet" href="/static/dashboard.css?v=metrics-5">
+  <link rel="stylesheet" href="/static/mada.css?v=bionotate-1">
+  <script src="/static/mada.js?v=bionotate-1" defer></script>
 </head>
 <body class="bionotate mada-page">
 <aside class="sidebar" aria-label="AstroHealth navigation">
-  <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth">A</a>
+  <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></a>
   <nav class="rail-nav" aria-label="Main navigation">
-    <a class="rail-link" href="/" aria-label="Crew dashboard" data-tooltip="Crew dashboard">CR</a>
-    <a class="rail-link" href="/upload" aria-label="Video analysis" data-tooltip="Video analysis">VI</a>
-    <a class="rail-link" href="/audio" aria-label="Voice biomarkers" data-tooltip="Voice biomarkers">VO</a>
-    <a class="rail-link" href="/measurements" aria-label="Manual measurements" data-tooltip="Manual measurements">ME</a>
-    <a class="rail-link" href="/mada" aria-label="Emergency support" data-tooltip="Emergency support" aria-current="page">MD</a>
+    <a class="rail-link" href="/" aria-label="Crew dashboard" data-tooltip="Crew dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m1-15a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-2-4"/></svg></a>
+    <a class="rail-link" href="/upload" aria-label="Upload video" data-tooltip="Upload video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3"/></svg></a>
+    <a class="rail-link" href="/measurements" aria-label="Manual measurements" data-tooltip="Manual measurements"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6m-3 6v8m-4-4h8"/></svg></a>
+    <a class="rail-link" href="/audio" aria-label="Voice recording" data-tooltip="Voice recording"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/></svg></a>
+    <a class="rail-link" href="/mada" aria-label="Emergency support" data-tooltip="Emergency support" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-3 4v6m-3-3h6"/></svg></a>
   </nav>
-  <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts">!</a>
+  <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
 </aside>
 <main class="mada-main">
-  <header class="mada-hero">
-    <div><p class="eyebrow">MODEL 03 / CLINICAL SUPPORT</p><h1>MADA Emergency Support</h1>
-      <p>Structured emergency assessment with patient-linked history and objective health trends.</p></div>
-    <span id="mada-status" class="mada-status" role="status">Checking service…</span>
+  <header class="mada-header">
+    <div><h1>Bionotate</h1><h2>Emergency support</h2></div>
+    <span id="mada-status" class="mada-pill" role="status"><span class="dot" aria-hidden="true"></span><span id="mada-status-text">Checking assistant…</span></span>
   </header>
-  <div class="mada-disclaimer" role="note">
-    <strong>Research prototype — not validated for medical care.</strong>
-    In an actual emergency, contact the Crew Medical Officer immediately. Model output is decision support only.
-    This demo saves assessment text and Check answers in the AstroHealth database; do not enter real patient information into a public demo.
+
+  <div id="mada-offline" class="mada-banner offline" role="note" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 4.2-2.7M10.7 5a15 15 0 0 1 11.3 3.8M5 12.9a10 10 0 0 1 5.2-2.7M16.8 11.4a10 10 0 0 1 2.2 1.5M8.5 16.4a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"/></svg>
+    <div><strong id="mada-offline-title">The emergency assistant is offline</strong>
+      <p id="mada-offline-text">The AI model server isn't connected yet. You can still choose a crew member and look at their recent measurements.</p></div>
+  </div>
+
+  <div class="mada-banner safety" role="note">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 2.5 20.5h19L12 3.5Z"/><path d="M12 10v5m0 2.8h.01"/></svg>
+    <div><strong>In a real emergency, call the Crew Medical Officer first.</strong>
+      <p>This assistant is a research prototype that suggests steps. It is not a medical device. Don't enter real patient information in the public demo.</p></div>
   </div>
 
   <div class="mada-layout">
-    <div class="mada-primary">
+    <div class="mada-column">
       <section class="mada-panel" aria-labelledby="mada-patient-heading">
-        <div class="mada-panel-header"><p class="eyebrow">01 · IDENTITY</p><h2 id="mada-patient-heading">Identify the Patient</h2></div>
-        <div class="mada-fields">
-          <label>Patient from registered crew roster <span class="required">(required)</span>
-            <select id="mada-patient" required><option value="">Loading patients…</option></select>
-          </label>
-          <label>Responder identifier <span class="optional">(optional; may be someone else)</span>
-            <input id="mada-responder" type="text" maxlength="64" placeholder="e.g. A-01 or crew member name">
-          </label>
-        </div>
-        <p id="mada-patient-detail" class="mada-caption">Choose the person receiving medical attention, not necessarily the person operating this page.</p>
+        <h3 id="mada-patient-heading"><span class="step">1</span> Who needs help?</h3>
+        <select id="mada-patient" class="visually-hidden" tabindex="-1" aria-hidden="true"><option value="">Loading crew…</option></select>
+        <div id="mada-crew" class="mada-crew" role="radiogroup" aria-label="Crew member who needs help"></div>
+        <label class="mada-field">Your name or ID <span class="optional">optional, if you are helping someone else</span>
+          <input id="mada-responder" type="text" maxlength="64" placeholder="e.g. A-01 or Reid Wiseman">
+        </label>
+        <p id="mada-patient-detail" class="mada-caption" hidden></p>
       </section>
 
       <section class="mada-panel" aria-labelledby="mada-assessment-heading">
-        <div class="mada-panel-header mada-inline"><div><p class="eyebrow">02 · ASSESSMENT</p><h2 id="mada-assessment-heading">Describe the emergency</h2></div>
-          <button type="button" id="mada-new">Start new</button></div>
+        <div class="mada-panel-top"><h3 id="mada-assessment-heading"><span class="step">2</span> What is happening?</h3>
+          <button type="button" id="mada-new" class="mada-button">Start over</button></div>
         <form id="mada-form">
-          <label class="mada-full">What is happening? <span class="optional">Provide symptoms or answer the requested Checks.</span>
-            <textarea id="mada-text" rows="4" maxlength="4000" placeholder="Describe the Patient's situation, symptoms and recent events…"></textarea>
+          <label class="mada-field">Describe the symptoms and what happened
+            <textarea id="mada-text" rows="4" maxlength="4000" placeholder="e.g. Christina hit her head on a handrail 5 minutes ago and feels dizzy…"></textarea>
           </label>
           <div id="mada-checks" class="mada-checks" hidden aria-live="polite"></div>
-          <div class="mada-fields mada-attachments">
-            <label>Optional image <span class="optional">JPEG, PNG or WebP · max 10 MB</span>
+          <div class="mada-attachments">
+            <label class="mada-field">Add a photo <span class="optional">optional · JPEG, PNG or WebP, up to 10 MB</span>
               <input id="mada-image" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"></label>
-            <label>Optional audio <span class="optional">max 30 seconds, 10 MB</span>
-              <input id="mada-audio" type="file" accept=".wav,.webm,.ogg,.mp3,.m4a,.mp4,audio/*"></label>
+            <div class="mada-field">Add a voice note <span class="optional">optional · up to 30 seconds</span>
+              <div class="mada-record">
+                <button type="button" id="mada-record" class="mada-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3"/></svg> Record</button>
+                <button type="button" id="mada-stop" class="mada-button" disabled>Stop</button>
+                <span id="mada-timer" class="mada-caption">00:00 / 00:30</span>
+              </div>
+              <input id="mada-audio" type="file" accept=".wav,.webm,.ogg,.mp3,.m4a,.mp4,audio/*" aria-label="Or upload an audio file">
+              <audio id="mada-preview" controls hidden></audio>
+            </div>
           </div>
-          <div class="mada-record-controls"><button type="button" id="mada-record">Record audio</button>
-            <button type="button" id="mada-stop" disabled>Stop recording</button>
-            <span id="mada-timer" class="mada-caption">00:00 / 00:30</span></div>
-          <audio id="mada-preview" controls hidden></audio>
-          <div class="mada-form-footer"><span id="mada-message" role="status" aria-live="polite">Choose a patient to begin.</span>
-            <button type="submit" id="mada-submit" class="mada-primary-button">Analyze emergency</button></div>
+          <div class="mada-form-footer"><span id="mada-message" role="status" aria-live="polite">Choose a crew member to begin.</span>
+            <button type="submit" id="mada-submit" class="mada-button primary">Get emergency steps</button></div>
         </form>
       </section>
 
       <section id="mada-result" class="mada-panel mada-result" hidden aria-labelledby="mada-result-heading">
-        <div class="mada-panel-header mada-inline"><div><p class="eyebrow">03 · GUIDANCE</p><h2 id="mada-result-heading">MADA assessment</h2></div>
-          <span id="mada-severity" class="mada-status"></span></div>
-        <div id="mada-gcs-alert" class="mada-warning" hidden></div>
-        <div class="mada-steps"><h3>Immediate first steps</h3><ol id="mada-first-steps"></ol></div>
-        <p id="mada-model-message" role="alert" hidden></p>
+        <div class="mada-panel-top"><h3 id="mada-result-heading"><span class="step">3</span> Suggested steps</h3>
+          <span id="mada-severity" class="mada-badge"></span></div>
+        <div id="mada-gcs-alert" class="mada-banner danger" hidden></div>
+        <div class="mada-first-steps"><h4>Do these first</h4><ol id="mada-first-steps"></ol></div>
+        <p id="mada-model-message" class="mada-banner offline" role="alert" hidden></p>
         <div id="mada-protocols"></div>
-        <p id="mada-no-match" hidden></p>
-        <details class="mada-details"><summary>Model rationale and unconfirmed observations (Crew Medical Officer)</summary>
-          <p id="mada-rationale"></p><ul id="mada-features"></ul></details>
+        <p id="mada-no-match" class="mada-banner offline" hidden></p>
+        <div class="mada-reasoning">
+          <h4>Why the assistant suggests this</h4>
+          <p id="mada-rationale"></p>
+          <ul id="mada-features"></ul>
+        </div>
         <p id="mada-result-disclaimer" class="mada-caption"></p>
       </section>
     </div>
 
-    <aside class="mada-secondary">
+    <aside class="mada-column">
       <section class="mada-panel" aria-labelledby="mada-trend-heading">
-        <div class="mada-panel-header"><p class="eyebrow">PATIENT RECORD</p><h2 id="mada-trend-heading">Measurement trends</h2></div>
-        <p class="mada-caption">Data retrieved from AstroHealth. Each model run counts once. Changes are descriptive, not a diagnosis.</p>
-        <p id="mada-context-info" class="mada-caption">When you submit an assessment, up to 12 recent metrics for the selected Patient are sent to MADA as historical context, not as a diagnosis.</p>
-        <p id="mada-trend-summary" class="mada-caption">Select a patient to view measurements.</p>
+        <h3 id="mada-trend-heading">Recent measurements</h3>
+        <p id="mada-trend-summary" class="mada-caption">Choose a crew member to see their measurements.</p>
         <div id="mada-trends" class="mada-trends"></div>
+        <p id="mada-context-info" class="mada-caption">When you ask for help, up to 12 recent readings are shared with the assistant as background.</p>
       </section>
       <section class="mada-panel" aria-labelledby="mada-history-heading">
-        <div class="mada-panel-header"><p class="eyebrow">PATIENT RECORD</p><h2 id="mada-history-heading">Assessment history</h2></div>
-        <p class="mada-caption">Assessments are linked to the selected Patient, even if someone else responded.</p>
-        <div id="mada-history" class="mada-history">Select a patient to view history.</div>
+        <h3 id="mada-history-heading">Past emergencies</h3>
+        <div id="mada-history" class="mada-history mada-caption">Choose a crew member to see their history.</div>
       </section>
     </aside>
   </div>

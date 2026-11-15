@@ -46,8 +46,9 @@ def trends(patient_id: str):
 
 
 @router.get("/mada/status")
-def status():
+async def status():
     return {"demo_enabled": mada_client.enabled(), "configured": mada_client.configured(),
+            "model": await mada_client.connection_state(),
             "note": "Prototype only; not validated for patient care."}
 
 

@@ -14,10 +14,10 @@ FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # On startup: fill an empty database from the team's shared seed file.
-    added = seed.load_seed_if_empty()
+    # Merge the reviewed shared database; preserve existing readings.
+    added = seed.initialize()
     if added:
-        logging.getLogger("uvicorn.error").info("Loaded shared seed data: %s", added)
+        logging.getLogger("uvicorn.error").info("Database initialization: %s", added)
     yield
 
 
@@ -50,7 +50,7 @@ def health_check():
 @app.get("/", include_in_schema=False)
 def dashboard_page():
     """Crew health dashboard."""
-    return FileResponse(FRONTEND_DIR / "index.html")
+    return FileResponse(FRONTEND_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/upload", include_in_schema=False)

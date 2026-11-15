@@ -35,6 +35,25 @@ def require_enabled() -> str:
     return url
 
 
+async def connection_state() -> str:
+    """One word for the UI: disabled, not_configured, offline or online.
+
+    The model server address comes only from MADA_SERVICE_URL, so the team's
+    own server can be plugged in later without touching the frontend.
+    """
+    if not enabled():
+        return "disabled"
+    url = os.environ.get("MADA_SERVICE_URL", "").strip().rstrip("/")
+    if not url.startswith(("http://", "https://")):
+        return "not_configured"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(3.0), follow_redirects=False) as client:
+            response = await client.get(url + "/health")
+    except httpx.HTTPError:
+        return "offline"
+    return "online" if response.status_code == 200 else "offline"
+
+
 async def request_mada(method: str, path: str, *, data=None, files=None) -> dict:
     url = require_enabled() + path
     # MADA can take up to 60 seconds to generate a response (or queue for 30).

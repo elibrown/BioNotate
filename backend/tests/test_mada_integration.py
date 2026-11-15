@@ -120,6 +120,7 @@ class MadaIntegrationTests(unittest.TestCase):
 
     def test_disabled_gate_blocks_sensitive_history_and_assessment(self):
         os.environ["MADA_DEMO_ENABLED"] = "0"
+        self.assertEqual(self.client.get("/api/mada/status").json()["model"], "disabled")
         self.assertEqual(self.client.get("/api/mada/status").json()["demo_enabled"], False)
         self.assertEqual(self.client.post('/api/mada/assess', data={"patient_id": "A-02", "text": "Hello"}).status_code, 503)
         self.assertEqual(self.client.get('/api/patients/A-02/mada-assessments').status_code, 503)
@@ -231,7 +232,7 @@ class MadaIntegrationTests(unittest.TestCase):
 
     def test_ui_page_and_static_assets(self):
         self.assertEqual(self.client.get('/mada').status_code, 200)
-        self.assertIn('Identify the Patient', self.client.get('/mada').text)
+        self.assertIn('Who needs help?', self.client.get('/mada').text)
         self.assertEqual(self.client.get('/static/mada.js').status_code, 200)
 
 

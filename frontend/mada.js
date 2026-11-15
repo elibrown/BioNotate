@@ -30,7 +30,16 @@
     return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
   }
   function displayLabel(key) { return String(key).replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase()); }
-  function severityLabel(level) { return level ? displayLabel(level) : 'Pending'; }
+  function severityLabel(level) {
+    return { life_threatening: 'Life-threatening', urgent: 'Urgent' }[level] || 'Not decided yet';
+  }
+  function severityClass(level) { return { life_threatening: 'red', urgent: 'yellow' }[level] || ''; }
+  const SOURCE_NAMES = { cardioresp: 'From video', voicebiomarker: 'From voice', manual: 'Entered by hand', shared_demo: 'Demo reading' };
+  function sourceLabel(source) { return SOURCE_NAMES[source] || displayLabel(source); }
+  function shortTime(iso) {
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? (iso || '—') : date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
   function listInto(parent, items, tag = 'ol') {
     const list = node(tag);
     for (const item of items || []) list.append(node('li', item));
@@ -39,7 +48,7 @@
   function resetAssessment() {
     state.assessmentId = null;
     state.latest = null;
-    $('mada-context-info').textContent = 'When you submit an assessment, up to 12 recent metrics for the selected Patient are sent to MADA as historical context, not as a diagnosis.';
+    $('mada-context-info').textContent = 'When you ask for help, up to 12 recent readings are shared with the assistant as background.';
     $('mada-text').value = '';
     $('mada-image').value = '';
     $('mada-audio').value = '';
@@ -48,7 +57,7 @@
     clear($('mada-checks'));
     $('mada-checks').hidden = true;
     $('mada-result').hidden = true;
-    $('mada-submit').textContent = 'Analyze emergency';
+    $('mada-submit').textContent = 'Get emergency steps';
   }
   function clearRecordedPreview() {
     if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
@@ -60,24 +69,45 @@
   async function loadPatients() {
     try {
       const people = await getJSON('/api/patients');
-      const select = $('mada-patient');
-      clear(select);
-      select.append(node('option', 'Select registered Patient…'));
+      const select = $('mada-patient'), crew = $('mada-crew');
+      clear(select); clear(crew);
+      select.append(node('option', 'No one selected'));
       select.firstChild.value = '';
       for (const person of people) {
         const option = node('option', `${person.name} (${person.id})`);
         option.value = person.id;
         select.append(option);
+        // A small crew card with the same photos as the dashboard.
+        const card = node('button', '', 'crew-pick');
+        card.type = 'button';
+        card.setAttribute('role', 'radio');
+        card.setAttribute('aria-checked', 'false');
+        card.dataset.id = person.id;
+        const img = node('img');
+        img.src = `/ui-assets/crew/${encodeURIComponent(person.id)}.jpg`;
+        img.alt = '';
+        img.onerror = () => { img.onerror = null; img.src = '/ui-assets/portrait-placeholder.svg'; };
+        const who = node('span', '', 'who');
+        who.append(node('strong', person.name), node('small', `${person.role || 'Crew'} · ${person.id}`));
+        card.append(img, who, node('span', '✓', 'tick'));
+        card.addEventListener('click', () => {
+          if (select.disabled || select.value === person.id) return;
+          select.value = person.id;
+          select.dispatchEvent(new Event('change'));
+        });
+        crew.append(card);
       }
-    } catch (error) { setMessage(`Cannot load patients: ${error.message}`); }
+    } catch (error) { setMessage(`Cannot load the crew list: ${error.message}`); }
   }
   async function loadPatientRecord() {
     const id = $('mada-patient').value;
     const selected = $('mada-patient').selectedOptions[0];
-    $('mada-patient-detail').textContent = id ? `Patient: ${selected.textContent}. This identity will be recorded with every assessment.` : 'Select the person receiving medical attention.';
+    for (const card of $('mada-crew').children) card.setAttribute('aria-checked', String(card.dataset.id === id));
+    $('mada-patient-detail').hidden = !id;
+    $('mada-patient-detail').textContent = id ? `Helping ${selected.textContent}. Everything you send is saved to their record.` : '';
     clear($('mada-trends'));
     clear($('mada-history'));
-    $('mada-trend-summary').textContent = id ? 'Retrieving measurements…' : 'Select a patient to view measurements.';
+    $('mada-trend-summary').textContent = id ? 'Loading measurements…' : 'Choose a crew member to see their measurements.';
     if (!id) return;
     const encoded = encodeURIComponent(id);
     try {
@@ -85,7 +115,7 @@
       if ($('mada-patient').value === id) renderTrends(trend);
     } catch (error) { $('mada-trend-summary').textContent = error.message; }
     if (!state.enabled) {
-      $('mada-history').textContent = 'MADA assessment history is disabled in this environment.';
+      $('mada-history').textContent = 'History appears here once the assistant is switched on.';
       return;
     }
     try {
@@ -94,15 +124,22 @@
     } catch (error) { $('mada-history').textContent = error.message; }
   }
   function renderTrends(data) {
-    $('mada-trend-summary').textContent = data.summary;
+    $('mada-trend-summary').textContent = data.metrics.length
+      ? 'Latest reading of each measurement. These show changes only, not a diagnosis.'
+      : 'No measurements recorded for this crew member yet.';
     const target = $('mada-trends'); clear(target);
     for (const m of data.metrics) {
       const card = node('article', '', 'mada-trend');
-      card.append(node('span', `${displayLabel(m.source)} · ${m.observations} independent observation(s)`, 'meta'));
-      card.append(node('strong', displayLabel(m.metric)));
-      card.append(node('div', `Latest: ${m.latest.value} ${m.unit || ''} (${time(m.latest.measured_at)})`, 'meta'));
-      card.append(node('div', m.delta === null ? 'Only one observation; no trend can be calculated.' :
-        `${displayLabel(m.direction)} · Δ ${m.delta > 0 ? '+' : ''}${m.delta} ${m.unit || ''} since ${time(m.first.measured_at)}`, 'delta'));
+      const row = node('div', '', 'row');
+      const value = node('span', m.latest.value, 'value');
+      if (m.unit) value.append(node('small', m.unit));
+      row.append(node('strong', m.label || displayLabel(m.metric)), value);
+      card.append(row);
+      card.append(node('div', `${sourceLabel(m.source)} · ${shortTime(m.latest.measured_at)}`, 'meta'));
+      if (m.delta !== null) {
+        const word = { increasing: 'Up', decreasing: 'Down', stable: 'No change' }[m.direction] || displayLabel(m.direction);
+        card.append(node('div', `${word}${m.delta ? ` ${Math.abs(m.delta)} ${m.unit || ''}` : ''} over ${m.observations} readings`, 'delta'));
+      }
       if (m.points.length > 1) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('viewBox', '0 0 260 54');
@@ -113,7 +150,7 @@
         const pts = values.map((v, i) => `${8 + 244 * i / (values.length - 1)},${44 - ((v - min) / span) * 34}`).join(' ');
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
         line.setAttribute('points', pts); line.setAttribute('fill', 'none');
-        line.setAttribute('stroke', '#0472d3'); line.setAttribute('stroke-width', '3');
+        line.setAttribute('stroke', '#0472d3'); line.setAttribute('stroke-width', '2.5');
         line.setAttribute('stroke-linecap', 'round'); line.setAttribute('stroke-linejoin', 'round');
         svg.append(line); card.append(svg);
       }
@@ -122,23 +159,23 @@
   }
   function renderHistory(items) {
     const target = $('mada-history'); clear(target);
-    if (!items.length) { target.textContent = 'No saved emergency assessments for this Patient.'; return; }
+    if (!items.length) { target.textContent = 'No past emergencies for this crew member.'; return; }
     for (const item of items) {
       const card = node('article', '', 'mada-history-item');
-      card.append(node('strong', `${severityLabel(item.latest_response?.severity)} · ${displayLabel(item.action)}`));
-      card.append(node('div', `${time(item.updated_at)} · Responder: ${item.responder_id || 'not specified'}`));
-      const open = node('button', 'Open / resume');
+      card.append(node('strong', `${severityLabel(item.latest_response?.severity)} · ${item.action === 'ask_checks' ? 'waiting for answers' : 'finished'}`));
+      card.append(node('span', `${shortTime(item.updated_at)} · Helped by ${item.responder_id || 'not recorded'}`));
+      const open = node('button', 'Open', 'mada-button');
       open.type = 'button';
       open.addEventListener('click', async () => {
         try {
           const record = await getJSON(`/api/mada/assessments/${encodeURIComponent(item.id)}`);
-          if (record.patient_id !== $('mada-patient').value) throw new Error('This assessment belongs to another Patient.');
+          if (record.patient_id !== $('mada-patient').value) throw new Error('This record belongs to another crew member.');
           resetAssessment();
           state.assessmentId = record.id;
           state.latest = record.latest_response;
           $('mada-responder').value = record.responder_id || '';
           renderResult(record.latest_response);
-          setMessage(`Loaded assessment from ${time(record.updated_at)}. You may submit follow-up information.`);
+          setMessage(`Opened the record from ${shortTime(record.updated_at)}. You can add more information.`);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) { setMessage(error.message); }
       });
@@ -150,7 +187,7 @@
     const area = node('fieldset', '', 'mada-check');
     area.dataset.checkId = check.id;
     area.append(node('legend', check.title || check.id));
-    if (check.status === 'UNVALIDATED') area.append(node('span', 'UNVALIDATED placeholder', 'unvalidated'));
+    if (check.status === 'UNVALIDATED') area.append(node('span', 'Not yet medically reviewed', 'unvalidated'));
     if (check.instruction) area.append(node('p', check.instruction));
     const answer = check.answer || {}, type = answer.type;
     if (type === 'choice') {
@@ -188,7 +225,7 @@
       area.append(fields);
     } else if (type === 'audio') {
       area.dataset.audioCheck = 'true';
-      area.append(node('p', 'Attach or record the requested audio above. The answer “recorded” will be sent with it.'));
+      area.append(node('p', 'Record or attach a voice note below; it will be sent as the answer.'));
     } else {
       area.append(node('p', `Unsupported Check format: ${type || 'unknown'}. Please contact the project team.`));
     }
@@ -198,8 +235,8 @@
     const target = $('mada-checks'); clear(target);
     target.hidden = !checks.length;
     if (!checks.length) return;
-    target.append(node('h3', 'Requested Checks'));
-    target.append(node('p', 'Complete the following observations, then submit the answers. Never invent a reading.'));
+    target.append(node('h3', 'The assistant needs a few more details'));
+    target.append(node('p', 'Check these on the crew member, then send your answers. Leave anything you could not check blank.'));
     for (const check of checks) {
       const field = renderCheckField(check);
       const specific = warnings.filter(w => w.check_id === check.id || w.id === check.id);
@@ -233,7 +270,7 @@
   function renderResult(result) {
     $('mada-result').hidden = false;
     $('mada-severity').textContent = severityLabel(result.severity);
-    $('mada-severity').className = `mada-status ${result.severity === 'life_threatening' ? 'down' : ''}`;
+    $('mada-severity').className = `mada-badge ${severityClass(result.severity)}`;
     const gcsAlert = $('mada-gcs-alert');
     gcsAlert.hidden = !result.gcs_alert;
     gcsAlert.textContent = result.gcs_alert?.message || '';
@@ -241,12 +278,12 @@
     for (const step of result.first_steps || []) firstSteps.append(node('li', step));
     const modelMessage = $('mada-model-message');
     modelMessage.hidden = !result.degraded;
-    modelMessage.textContent = result.degraded ? (result.message || 'MADA was unavailable. Guidance was retrieved without the model.') : '';
+    modelMessage.textContent = result.degraded ? (result.message || 'The AI model was unavailable, so these steps come straight from the protocol list.') : '';
     const protocols = $('mada-protocols'); clear(protocols);
     for (const protocol of result.protocols || []) {
       const section = node('section', '', `mada-protocol ${protocol.severity === 'life_threatening' ? 'critical' : 'urgent'}`);
-      section.append(node('span', severityLabel(protocol.severity), 'mada-status'));
-      section.append(node('h3', protocol.title));
+      section.append(node('span', severityLabel(protocol.severity), `mada-badge ${severityClass(protocol.severity)}`));
+      section.append(node('h4', protocol.title));
       // Verbatim text: neither summarize nor translate the official checklist.
       const protocolSteps = node('div', '', 'mada-verbatim');
       for (const step of protocol.steps || []) protocolSteps.append(node('p', step));
@@ -254,20 +291,20 @@
       protocols.append(section);
     }
     $('mada-no-match').hidden = !result.no_protocol_match;
-    $('mada-no-match').textContent = result.no_protocol_match ? (result.message || 'No protocol matched; request assessment by the Crew Medical Officer.') : '';
-    $('mada-rationale').textContent = result.rationale || 'No model rationale provided.';
+    $('mada-no-match').textContent = result.no_protocol_match ? (result.message || 'No matching emergency procedure was found. Ask the Crew Medical Officer to assess.') : '';
+    $('mada-rationale').textContent = result.rationale || 'The assistant did not give a reason.';
     const features = $('mada-features'); clear(features);
-    for (const feature of result.observed_features || []) features.append(node('li', `Unconfirmed: ${feature}`));
-    $('mada-result-disclaimer').textContent = result.disclaimer || 'Decision support only. Contact the Crew Medical Officer.';
+    for (const feature of result.observed_features || []) features.append(node('li', `Noticed, not confirmed: ${feature}`));
+    $('mada-result-disclaimer').textContent = result.disclaimer || 'Suggestions only. Contact the Crew Medical Officer.';
     renderChecks(result.action === 'ask_checks' ? result.next_checks || [] : [], result.answer_warnings || []);
-    $('mada-submit').textContent = result.action === 'ask_checks' ? 'Submit Check answers' : 'Send new information';
+    $('mada-submit').textContent = result.action === 'ask_checks' ? 'Send answers' : 'Send more information';
   }
 
   async function submit(event) {
     event.preventDefault();
-    if (!state.enabled) { setMessage('MADA is disabled. Contact the project team to enable the local demo.'); return; }
+    if (!state.enabled) { setMessage('The assistant is offline, so it cannot answer yet.'); return; }
     const patientId = $('mada-patient').value;
-    if (!patientId) { setMessage('Choose the Patient from the crew roster first.'); return; }
+    if (!patientId) { setMessage('First choose who needs help.'); return; }
     const button = $('mada-submit');
     try {
       const answers = collectCheckAnswers();
@@ -282,21 +319,21 @@
       const audio = state.recordFile || $('mada-audio').files[0];
       if (audio) form.append('audio', audio);
       if (![...form.values()].some(x => x instanceof File) && !form.get('text') && !Object.keys(answers).length) {
-        throw new Error('Enter a description, answer a Check, or attach a photo/audio recording.');
+        throw new Error('Describe what is happening, answer a question, or add a photo or voice note.');
       }
       button.disabled = true; $('mada-patient').disabled = true;
-      setMessage('MADA is analyzing the assessment. Keep this window open…');
+      setMessage('The assistant is thinking. This can take up to a minute; keep this page open…');
       const response = await fetch('/api/mada/assess', { method: 'POST', body: form });
       const data = await response.json();
       if (!response.ok) throw new Error(errorMessage(data, response.status));
       if (Number.isInteger(data.patient_context_metrics_sent)) {
         const n = data.patient_context_metrics_sent;
-        $('mada-context-info').textContent = `${n} historical metric${n === 1 ? '' : 's'} supplied to MADA as patient context. This does not mean the agent interpreted them as a diagnosis.`;
+        $('mada-context-info').textContent = `${n} recent reading${n === 1 ? ' was' : 's were'} shared with the assistant as background.`;
       }
       state.assessmentId = data.assessment_id;
       state.latest = data.assessment;
       renderResult(data.assessment);
-      setMessage(`Assessment saved for Patient ${data.patient.name} (${data.patient.id}) at ${time(data.saved_at)}.`);
+      setMessage(`Saved to ${data.patient.name}'s record at ${shortTime(data.saved_at)}.`);
       $('mada-text').value = '';
       $('mada-image').value = '';
       $('mada-audio').value = '';
@@ -310,11 +347,11 @@
       if (state.universalSteps.length && !state.latest) {
         renderResult({action: 'finalize', first_steps: state.universalSteps,
           severity: null, protocols: [], next_checks: [], degraded: true,
-          message: `MADA unavailable: ${error.message}. Contact the Crew Medical Officer.`,
-          disclaimer: 'Model unavailable. Emergency steps below came from the protocol catalogue.'});
+          message: `The assistant could not answer (${error.message}). Contact the Crew Medical Officer.`,
+          disclaimer: 'The AI model was unavailable. The steps above come straight from the protocol list.'});
       }
     }
-    finally { button.disabled = false; $('mada-patient').disabled = false; }
+    finally { button.disabled = !state.enabled; $('mada-patient').disabled = false; }
   }
 
   function stopRecording() {
@@ -361,7 +398,7 @@
 
   $('mada-patient').addEventListener('change', () => { resetAssessment(); loadPatientRecord(); });
   $('mada-form').addEventListener('submit', submit);
-  $('mada-new').addEventListener('click', () => { resetAssessment(); setMessage('New assessment. Enter symptoms or upload media.'); });
+  $('mada-new').addEventListener('click', () => { resetAssessment(); setMessage('Started over. Describe what is happening.'); });
   $('mada-record').addEventListener('click', startRecording);
   $('mada-stop').addEventListener('click', stopRecording);
   $('mada-audio').addEventListener('change', () => { state.recordFile = null; clearRecordedPreview(); });
@@ -370,11 +407,21 @@
     await loadPatients();
     try {
       const status = await getJSON('/api/mada/status');
-      state.enabled = !!(status.demo_enabled && status.configured);
-      $('mada-status').textContent = state.enabled ? 'Demo model configured' : 'Model not configured / disabled';
-      $('mada-status').classList.add(state.enabled ? 'ok' : 'down');
-      setMessage(state.enabled ? 'Select a patient and describe the emergency.' :
-        'MADA inference is disabled. Patient trend retrieval still works.');
+      // The backend reports one of: online, offline, not_configured, disabled.
+      // The model server address itself only lives on the backend (MADA_SERVICE_URL).
+      const model = status.model || (status.demo_enabled && status.configured ? 'online' : 'disabled');
+      state.enabled = model === 'online';
+      $('mada-status-text').textContent = state.enabled ? 'Assistant online' : 'Assistant offline';
+      $('mada-status').classList.add(state.enabled ? 'online' : 'offline');
+      const offline = {
+        disabled: 'The AI model is not switched on for this site yet. You can still choose a crew member and look at their recent measurements.',
+        not_configured: 'The AI model is switched on, but no server address is set (MADA_SERVICE_URL). You can still look at measurements.',
+        offline: 'The AI model server is set up but not answering right now. It may still be starting; try again in a minute.',
+      }[model];
+      $('mada-offline').hidden = state.enabled;
+      if (offline) $('mada-offline-text').textContent = offline;
+      setMessage(state.enabled ? 'Choose who needs help and describe what is happening.' :
+        'The assistant is offline, so sending is turned off for now.');
       $('mada-submit').disabled = !state.enabled;
       if (state.enabled) {
         // Cache the service-provided first steps for a temporarily busy model.
@@ -384,7 +431,7 @@
           state.universalSteps = Array.isArray(catalogue.first_steps) ? catalogue.first_steps : [];
         } catch { /* The MADA server may still be starting. */ }
       }
-    } catch (error) { $('mada-status').textContent = 'Status unavailable'; setMessage(error.message); }
+    } catch (error) { $('mada-status-text').textContent = 'Status unknown'; setMessage(error.message); }
   }
   initialize();
 })();

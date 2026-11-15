@@ -169,6 +169,14 @@ def list_assessments(patient_id: str, limit: int = 25) -> list[dict]:
         conn.close()
 
 
+def metric_label(metric: str) -> str:
+    """Human name from data/biomarkers.json, e.g. hr_bpm -> Heart rate."""
+    from app.data import trends
+    name = trends._ALIASES.get(metric, metric)
+    label = trends._META.get(name, {}).get("label")
+    return label or (metric.upper() if len(metric) <= 4 else metric.replace("_", " ").capitalize())
+
+
 def patient_trends(patient_id: str) -> dict:
     """Describe observed changes, not infer diagnosis or whether a change is good.
 
@@ -176,7 +184,9 @@ def patient_trends(patient_id: str) -> dict:
     median; otherwise a 30-second clip could misleadingly count as 30 sessions.
     Manual readings count individually. Sources and units are never mixed.
     """
-    readings = db.list_measurements(astronaut_id=patient_id, limit=10000)
+    # Live crew readings only: the biology research rows are placed on a
+    # mission-phase axis without timestamps, so they can't share this timeline.
+    readings = db.list_measurements(astronaut_id=patient_id, context="live", limit=10000)
     grouped: dict[tuple, list[dict]] = defaultdict(list)
     for row in readings:
         # A numeric prediction ID may be absent for manual measurements.
@@ -193,7 +203,7 @@ def patient_trends(patient_id: str) -> dict:
         })
 
     metrics = []
-    for (source, metric, unit), samples in sorted(events.items()):
+    for (source, metric, unit), samples in sorted(events.items(), key=lambda kv: tuple(str(k or "") for k in kv[0])):
         samples.sort(key=lambda r: r["measured_at"])
         samples = samples[-30:]
         first, last = samples[0], samples[-1]
@@ -203,6 +213,7 @@ def patient_trends(patient_id: str) -> dict:
         )
         metrics.append({
             "source": source, "metric": metric, "unit": unit,
+            "label": metric_label(metric),
             "observations": len(samples), "first": first, "latest": last,
             "delta": change, "direction": direction,
             "points": samples,

@@ -26,7 +26,7 @@ schema, and makes "HR for astronaut A-07 over the last week" one simple query.
 - The database is ONE file: backend/astrohealth.db (git-ignored).
   Set the ASTROHEALTH_DB environment variable to use another path (tests do).
 - We use Python's built-in sqlite3 module: no extra install, no ORM.
-- The rest of the app only calls the functions below; no SQL anywhere else.
+- SQL schema definitions live in data/schema; this module owns production storage.
 """
 
 import json
@@ -40,60 +40,10 @@ from statistics import median
 BACKEND_DIR = Path(__file__).resolve().parents[1]   # .../backend
 DEFAULT_DB_PATH = BACKEND_DIR / "astrohealth.db"
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS astronauts (
-    id    TEXT PRIMARY KEY,                  -- e.g. A-01, same as astronaut_id elsewhere
-    name  TEXT NOT NULL,
-    role  TEXT
-);
+DATA_DIR = Path(__file__).resolve().parents[2] / 'data'
+SCHEMA = (DATA_DIR / 'schema' / 'production.sql').read_text(encoding='utf-8')
+SCHEMA, INDEX_SCHEMA = SCHEMA.split('-- Indexes', 1)
 
-CREATE TABLE IF NOT EXISTS predictions (
-    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    astronaut_id       TEXT,                 -- may be NULL (optional on upload)
-    created_at         TEXT    NOT NULL,     -- UTC, ISO 8601
-    video_file         TEXT,                 -- uploaded file name in backend/uploads/ (video or audio)
-    model              TEXT,                 -- result["model"], e.g. "cardioresp"
-    model_version      TEXT,                 -- result["model_version"]
-    status             TEXT,                 -- result["status"], e.g. "ok"
-    is_alert           INTEGER NOT NULL DEFAULT 0,   -- 1 = needs attention
-    alert_acknowledged INTEGER NOT NULL DEFAULT 0,   -- 1 = someone handled it in the UI
-    result_json        TEXT    NOT NULL      -- the full model output, as JSON
-);
-CREATE INDEX IF NOT EXISTS idx_predictions_astronaut
-    ON predictions (astronaut_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_predictions_alerts
-    ON predictions (is_alert, alert_acknowledged);
-
-CREATE TABLE IF NOT EXISTS measurements (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    astronaut_id  TEXT,
-    source        TEXT    NOT NULL,          -- model name (e.g. "cardioresp") or "manual"
-    metric        TEXT    NOT NULL,          -- e.g. hr_bpm, respi_rate, glucose_mg_dl
-    value         REAL    NOT NULL,
-    unit          TEXT,                      -- e.g. bpm, breaths/min, mg/dL
-    measured_at   TEXT    NOT NULL,          -- UTC, ISO 8601 with milliseconds
-    offset_s      REAL,                      -- seconds into the video; NULL if manual
-    prediction_id INTEGER REFERENCES predictions(id)   -- NULL if entered by hand
-);
-CREATE INDEX IF NOT EXISTS idx_measurements_trend
-    ON measurements (astronaut_id, source, metric, measured_at);
-
-
--- MADA retains the stateless agent's text/check conversation for follow-up
--- turns. The patient must be a real roster member, distinct from responder.
-CREATE TABLE IF NOT EXISTS mada_assessments (
-    id                    TEXT PRIMARY KEY,
-    patient_id            TEXT NOT NULL REFERENCES astronauts(id),
-    responder_id          TEXT,
-    created_at            TEXT NOT NULL,
-    updated_at            TEXT NOT NULL,
-    action                TEXT NOT NULL,
-    turns_json            TEXT NOT NULL,
-    latest_response_json  TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_mada_patient_history
-    ON mada_assessments (patient_id, updated_at);
-"""
 
 # Normal ranges used for alerts: (source, metric) -> (low, high).
 # If the MEDIAN of a video's readings is outside its range, the prediction
@@ -124,8 +74,27 @@ def _connect() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")   # SQLite needs this per connection
     if str(path) not in _initialized:
         conn.executescript(SCHEMA)
+        _migrate_measurements(conn)
+        conn.executescript(INDEX_SCHEMA)
         _initialized.add(str(path))
     return conn
+
+
+def _migrate_measurements(conn):
+    """Upgrade legacy readings without changing IDs, values or timestamps."""
+    info = conn.execute('PRAGMA table_info(measurements)').fetchall()
+    names = {row['name'] for row in info}
+    if 'context' not in names or any(row['name'] == 'measured_at' and row['notnull'] for row in info):
+        definition = SCHEMA[SCHEMA.index('CREATE TABLE IF NOT EXISTS measurements ('):]
+        definition = definition[:definition.index(';') + 1]
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(definition.replace('IF NOT EXISTS measurements', 'measurements_upgrade'))
+            new_names = {row['name'] for row in conn.execute('PRAGMA table_info(measurements_upgrade)')}
+            common = ', '.join(sorted(names & new_names))
+            conn.execute(f'INSERT INTO measurements_upgrade ({common}) SELECT {common} FROM measurements')
+            conn.execute('DROP TABLE measurements')
+            conn.execute('ALTER TABLE measurements_upgrade RENAME TO measurements')
 
 
 def to_iso(moment: datetime) -> str:
@@ -169,11 +138,14 @@ def list_astronauts() -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def add_astronauts(astronauts: list[dict]) -> None:
-    """Add roster entries ({id, name, role}); existing IDs are left as they are."""
+def add_astronauts(astronauts: list[dict], *, update_existing: bool = False) -> None:
+    """Add roster entries; optionally refresh metadata for configured IDs."""
     conn = _connect()
     with conn:
         conn.executemany(
+            ("INSERT INTO astronauts (id, name, role) VALUES (:id, :name, :role) "
+             "ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role")
+            if update_existing else
             "INSERT OR IGNORE INTO astronauts (id, name, role) VALUES (:id, :name, :role)",
             [{"role": None, **a} for a in astronauts],
         )
@@ -469,6 +441,8 @@ def list_measurements(
     until: str | None = None,
     prediction_id: int | None = None,
     limit: int = 1000,
+    context: str | None = None,
+    dataset_id: str | None = None,
 ) -> list[dict]:
     """
     Measurements in time order (oldest first), ready to draw as a trend.
@@ -477,6 +451,8 @@ def list_measurements(
     """
     filters = {
         "astronaut_id = ?": astronaut_id,
+        "context = ?": context,
+        "dataset_id = ?": dataset_id,
         "source = ?": source,
         "metric = ?": metric,
         "measured_at >= ?": since,
@@ -490,8 +466,8 @@ def list_measurements(
         query += " WHERE " + " AND ".join(where)
     # Take the newest `limit` rows, then return them oldest first.
     query = (
-        f"SELECT * FROM ({query} ORDER BY measured_at DESC, id DESC LIMIT ?) "
-        "ORDER BY measured_at ASC, id ASC"
+        f"SELECT * FROM ({query} ORDER BY measured_at DESC, phase_index DESC, id DESC LIMIT ?) "
+        "ORDER BY measured_at ASC, phase_index ASC, id ASC"
     )
     params.append(limit)
     conn = _connect()

@@ -1,0 +1,7 @@
+{
+  "_note": "Crew are the real Artemis II astronauts (flew around the Moon in April 2026), used as demo personas. Age is their age at the Artemis II launch. Blood type, height and weight are illustrative demo values, not real medical data. Photo sources: see CREDITS.md.",
+  "A-01": {"age": 50, "blood_type": "O+", "height_m": 1.80, "weight_kg": 77.0},
+  "A-02": {"age": 49, "blood_type": "A+", "height_m": 1.83, "weight_kg": 82.0},
+  "A-03": {"age": 47, "blood_type": "B+", "height_m": 1.65, "weight_kg": 58.2},
+  "A-04": {"age": 50, "blood_type": "AB-", "height_m": 1.78, "weight_kg": 76.0}
+}

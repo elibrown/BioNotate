@@ -36,7 +36,7 @@ class DashboardTests(unittest.TestCase):
                 result, alerts = evaluate_member(member(value, age), NOW, 300)
                 self.assertEqual(result["status"], expected)
                 self.assertEqual(result["stale"], age > 300)
-                self.assertEqual(bool(alerts), expected == "alert")
+                self.assertEqual(bool(alerts), expected != "normal")
                 if alerts:
                     self.assertEqual(alerts[0]["crew_id"], "A-01")
 
@@ -68,3 +68,31 @@ class DashboardTests(unittest.TestCase):
         crew_ids = {crew["id"] for crew in snapshot["crew"]}
         self.assertTrue(snapshot["alerts"])
         self.assertTrue(all(alert["crew_id"] in crew_ids for alert in snapshot["alerts"]))
+
+
+class StatusReportingTests(unittest.TestCase):
+    def test_missing_and_stale_reasons_are_in_member_and_general_report(self):
+        from app.routers.dashboard import build_snapshot
+        class Repository:
+            stale_after_seconds = 300
+            def list_crew(self):
+                return [member(value=None), member(age=301)]
+        # Use distinct crew IDs so per-person report equality is meaningful.
+        missing = member(value=None)
+        stale = member(age=301)
+        stale.id = 'A-02'
+        repository = Repository()
+        repository.list_crew = lambda: [missing, stale]
+        data = build_snapshot(repository, NOW)
+        self.assertEqual({issue['kind'] for issue in data['alerts']}, {'missing', 'stale'})
+        for person in data['crew']:
+            self.assertEqual(person['status'], 'unknown')
+            self.assertEqual(person['issues'], [a for a in data['alerts'] if a['crew_id'] == person['id']])
+            self.assertTrue(all(a['severity'] == 'warning' for a in person['issues']))
+
+    def test_real_alert_remains_visible_alongside_missing_readings(self):
+        person = member(value=None, score=.8)
+        result, issues = evaluate_member(person, NOW, 300)
+        self.assertEqual(result['status'], 'alert')
+        self.assertEqual({a['severity'] for a in issues}, {'warning', 'alert'})
+        self.assertEqual(result['issues'], issues)

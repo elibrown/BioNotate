@@ -4,19 +4,66 @@ Astronaut health monitoring and early risk detection platform for NASA Space App
 
 ## System design
 
-### Dashboard
+Production has three tables: `astronauts` (crew), `predictions` (full model outputs),
+and `measurements` (all numeric readings, including the biology CSV). Definitions
+are in `data/schema/production.sql`; there are no separate biology graph tables.
 
-![Dashboard read path and planned database integration](docs/diagrams/dashboard-design.svg)
+### Data insertion
 
-The browser polls `GET /api/dashboard` every 15 seconds. The API reads crew data through `CrewRepository`, evaluates metric/prediction rules and freshness, and returns crew status and alerts. By default the repository reads the SQLite database (`DatabaseCrewRepository`): the `astronauts` roster (filled from `data/astronauts.json` on first run) and the readings saved from uploaded videos. Set `ASTROHEALTH_DASHBOARD=demo` to show the JSON demo files instead (`DemoCrewRepository`).
+```mermaid
+flowchart LR
+    Manual[Manual entry] --> M[(measurements)]
+    Models[Video / audio models] --> P[(predictions)]
+    Models --> M
+    Snapshot[Shared demo database] --> Merge[Startup merge and deduplication]
+    Merge --> M
+    Merge --> P
+    Merge --> A[(astronauts)]
+```
 
-### Video / data upload
+The reviewed `data/seed/shared_demo.db` contains 4 crew, 10 predictions and 616
+measurements: 387 seed readings, 220 imported biology values and 9 labeled demo
+vitals. Startup remaps conflicting prediction IDs and adds missing measurements;
+it does not overwrite local records. The canonical CSV and demo input are kept
+under `data/research/` and `data/demo_vitals.json`. A-02 has an intentional synthetic
+HR reading of 105 bpm to demonstrate yellow “Check required.”
 
-![Target multimodal upload and prediction pipeline](docs/diagrams/system-design.svg)
+### Data visualization
 
-This is the target upload architecture. Currently `/upload` calls the existing `POST /api/video`: check filename extension → save video → select video processor → call `run_model()` → return cardioresp estimates for heart rate (HR), respiratory rate (RR), and pulse-respiration quotient (PRQ). All processing strategies currently pass input through unchanged; video and audio are connected, while a metrics endpoint and a separate `/predict` service remain planned. The model returns latest HR/RR/PRQ, timestamped measurements, and recording-level median summaries. Invalid recordings return HTTP 422. Recordings need a visible frontal face, stable lighting, minimal movement, and at least 30 seconds of usable video (60+ recommended). This experimental model is not validated for medical decisions, astronauts, or microgravity; `ok` means computation succeeded. Uploaded results are saved to the database and appear on the dashboard on its next refresh. Both flows run in one FastAPI app, with sidebar links between dashboard and upload.
+```mermaid
+flowchart LR
+    M[(measurements)] --> API[Dashboard and measurement APIs]
+    A[(astronauts)] --> API
+    P[(predictions)] --> API
+    API --> UI[Crew details and metric graphs]
+    API --> Issues[Shared issues list]
+    Issues --> Personal[Personal Status Summary]
+    Issues --> General[General Status Report]
+```
 
-**Voice (`POST /api/audio`).** Sends five clips as file fields, one per task: `counting_normal` (count 1 to 20 at a normal pace), `counting_fast` (count 1 to 20 fast), `vowel_a`, `vowel_e`, `vowel_o` (hold each vowel for at least 5 s), plus an optional `astronaut_id`. `GET /api/audio/tasks` lists them with their instructions. Formats: WAV, WebM or Ogg/Opus, 10 MB and 120 s in total; at least 30 s of speech is recommended. The vendored `voicebiomarker` model returns a `vocal_biomarker` z-score and voice-quality measures (pitch, CPP, jitter, shimmer, HNR, creak). A recording it can't use returns 200 with `status: "rejected"`, a `reason` and `advice` for the astronaut. The biomarker was trained on a public dataset with a stand-in label (self-reported heart disease, hypertension or diabetes), not on edema; treat it as research data. It has no fixed alert level: the `rising` rule in `data/rules.json` raises an alert when an astronaut's last 4 checks each went up (the standard is 2 checks a day). `combined` rules (several values at once, from any model) are supported but none is set yet. Sample recordings for testing are in `data/sample/voice/` (six days of a synthetic voice whose score rises day by day; `upload_trend.py` uploads them in order to a running backend).
+Every metric is plotted once across its sources. Aliases such as `heart_rate` and
+`hr_bpm` are normalized using `data/biomarkers.json`. Missing/stale readings and
+configured threshold/trend alerts appear in both status reports.
+
+### Trend calculation
+
+```mermaid
+flowchart LR
+    Query[Crew and metric] --> Read[Read measurements]
+    Read --> Group[Group compatible units and time axes]
+    Group --> Sort[Order readings]
+    Sort --> Summary[First / latest / min / max / net change]
+    Sort --> Plot[Equally spaced observation points]
+```
+
+`GET /api/measurements/trends?astronaut_id=A-01` uses `app/data/trends.py`.
+Graphs use equal observation spacing and UTC `YYYYMMDD HH:mm:ss` labels/tooltips.
+Mission-phase readings keep their phase labels instead of invented dates; the
+same metric panel can switch between recorded time and mission phases.
+
+The SQLite snapshot is tracked in Git and copied into Docker. Pull this branch
+and rebuild/restart Docker to load the same baseline. Runtime uploads stay in the
+working database volume. The snapshot is reference data, not live synchronization.
 
 ## Run with Docker
 
@@ -32,7 +79,7 @@ docker compose up --build -d
 
 Open http://localhost:8000/ for the dashboard, `/upload` for video upload, or `/docs` for the API. No separate frontend server or build is needed. In development, Python changes reload automatically; refresh the browser after HTML/CSS/JS edits. Demo JSON changes appear on the next dashboard fetch (every 15 seconds). Rebuild after dependency changes; production requires rebuilding for all source/data changes.
 
-Use one mode at a time. Stop development with Ctrl+C; run `docker compose down` to remove containers. Uploads persist in a named volume; `down -v` deletes them. View logs with `docker compose logs -f app`. The image runs as a non-root user with a `/api/health` health check.
+Use one mode at a time. Stop development with Ctrl+C; run `docker compose down` to remove containers. Uploads and the working database persist in named volumes; `down -v` deletes them. View logs with `docker compose logs -f app`. The image runs as a non-root user with a `/api/health` health check.
 
 If port 8000 is occupied, prefix the command with `APP_PORT=8001` and open http://localhost:8001/. PowerShell: set `$env:APP_PORT = "8001"` first. Inspect configuration with `docker compose config` (include both `-f` flags for development).
 
@@ -79,7 +126,9 @@ classDiagram
 
 Everything is stored in one SQLite file, `backend/astrohealth.db` (created on
 first use, not committed to git; set `ASTROHEALTH_DB` to use another path).
-All database code is in `backend/app/db.py`. There are two tables:
+Database access is in `backend/app/db.py`; SQL definitions are in `data/schema/production.sql`. There are three tables:
+
+- **astronauts**: crew IDs, names and roles.
 
 - **predictions**: one row per model run (e.g. one uploaded video). It keeps
   the model's full output as JSON, its `model`, `status`, and whether it is an
@@ -129,23 +178,15 @@ and the `measurements` it saved.
 
 Tests: from `backend/`, run `python -m pytest -q`.
 
-If you ran an earlier version of this branch, delete `backend/astrohealth.db`
-once; it will be recreated with the current tables.
-
-**Shared data in git.** The `.db` file is not committed; the team shares its
-rows as text in `data/seed/astrohealth_seed.json` (one row per line, sorted by
-id). To share your data, run `python -m app.seed export` from `backend/` and
-commit that file. When the backend starts with a database that has no
-predictions or measurements, it loads the file automatically; a database that
-already has data is left alone. To switch to the shared data, stop the backend,
-delete `backend/astrohealth.db` and start it again. It is a snapshot, not a
-sync: if two people export different data, git shows a conflict, so export one
-at a time. Uploaded video/audio files are not included.
+**Shared data.** Startup merges the reviewed `data/seed/shared_demo.db` baseline.
+Repeat imports add no duplicates, and existing local records are preserved.
+The JSON seed remains a fallback for databases without a packaged snapshot.
+Do not delete a working database to apply an updated baseline.
 
 The dashboard (`GET /api/dashboard`) reads this database through
 `DatabaseCrewRepository` in `backend/app/dashboard/repository.py`. `DB_METRICS`
 there maps each dashboard metric in `data/rules.json` to a stored
-`(source, metric)`; today only `heart_rate` -> `("cardioresp", "hr_bpm")`.
+`(source, metric)`; heart and respiratory rates use the latest timestamped live reading across sources; research-phase values are excluded.
 Rule metrics with no mapping (e.g. `oxygen`) are not shown, and risk-score
 predictions stay empty until a model produces scores. Note the dashboard's
 alerts use the ranges in `data/rules.json`, separate from `ALERT_RANGES` above.

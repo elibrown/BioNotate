@@ -1,22 +1,22 @@
 [
   {
     "id": "A-01",
-    "name": "Alex Morgan",
+    "name": "Reid Wiseman",
     "role": "Commander"
   },
   {
     "id": "A-02",
-    "name": "Sam Rivera",
-    "role": "Flight engineer"
+    "name": "Victor Glover",
+    "role": "Pilot"
   },
   {
     "id": "A-03",
-    "name": "Jordan Chen",
+    "name": "Christina Koch",
     "role": "Mission specialist"
   },
   {
     "id": "A-04",
-    "name": "Robin Patel",
-    "role": "Science officer"
+    "name": "Jeremy Hansen",
+    "role": "Mission specialist (CSA)"
   }
 ]
