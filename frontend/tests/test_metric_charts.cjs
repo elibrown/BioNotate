@@ -38,3 +38,11 @@ test('one metric panel combines sources without displaying source or dataset hea
   assert.ok(!html.includes('biologist_csv') && !html.includes('secret-dataset') && !html.includes('shared_demo'));
   assert.ok(html.includes('20261115 10:00:00'));
 });
+test('an explicit metric warning produces the yellow Check required state', () => {
+  const ui = vm.createContext({});
+  vm.runInContext(source.slice(source.indexOf('function alertSeverity'), source.indexOf('// Line icons')), ui);
+  const data = {crew:[{id:'A-02', status:'alert', metrics:[]}], alerts:[{crew_id:'A-02', metric:'heart_rate', severity:'warning'}]};
+  ui.classify(data);
+  assert.equal(data.crew[0].display, 'warning');
+  assert.equal(data.alerts[0].severity, 'warning');
+});

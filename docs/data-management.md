@@ -6,9 +6,9 @@ All values used by the application belong to these production tables:
 | --- | --- | ---: |
 | astronauts | Crew IDs, names and roles | 4 |
 | predictions | Full saved model results | 10 in shared snapshot |
-| measurements | Every manual, model and imported biology reading | 615 in shared snapshot |
+| measurements | Every manual, model and imported biology reading | 616 in shared snapshot |
 
-The reviewed shared snapshot contains 615 measurements: 387 seed readings, 220 biology readings and 8 explicitly synthetic demo vitals. Working databases may additionally contain local uploads.
+The reviewed shared snapshot contains 616 measurements: 387 seed readings, 220 biology readings and 9 explicitly synthetic demo vitals. Working databases may additionally contain local uploads.
 These counts describe the shared snapshot. A working database can also retain older local readings.
 
 ## Production versus draft
@@ -132,7 +132,7 @@ crew/biomarker configuration, and `data/demo_vitals.json`. It is never generated
 from a developer's captured/personal database. Only this reviewed `.db` path is
 allowed by Git; working databases remain ignored.
 
-The eight extra HR/RR readings have source `shared_demo`, fixed fixture timestamps
+The nine extra HR/RR readings have source `shared_demo`, fixed fixture timestamps
 and `quality_flag=synthetic_demo_not_a_clinical_measurement`. Dashboard vitals use
 the latest timestamped reading for the metric, across live sources. Research-phase
 readings are excluded. Later genuine readings therefore supersede demo values,
@@ -158,3 +158,5 @@ Every configured warning or alert has an explicit issue in both the member's
 `issues` list and the dashboard's aggregate `alerts` list. Missing/stale data are
 warning issues, not clinical/model threshold alerts. Both Status Summary and
 Status Report use this same issue list.
+
+The shared demo includes one intentional yellow warning: A-02 / Victor Glover, HR 105 bpm at 20261115 11:17:00 UTC. Its issue appears in both personal Status Summary and the general Status Report.

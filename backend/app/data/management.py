@@ -119,6 +119,9 @@ def build_snapshot(destination: Path) -> dict:
                     for metric, unit in [('hr_bpm','bpm'), ('respi_rate','breaths/min')]:
                         conn.execute('INSERT INTO measurements (astronaut_id,source,metric,value,unit,measured_at,dataset_id,source_row,original_metric,dataset_filename,measurement_type,quality_flag) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                             (crew['astronaut_id'],demo['source'],metric,crew[metric],unit,demo['measured_at'],demo['dataset_id'],number+1,metric,'demo_vitals.json','Synthetic demo',demo['quality_flag']))
+                for number, reading in enumerate(demo.get('extra_readings', []), len(demo['crew'])+1):
+                    conn.execute('INSERT INTO measurements (astronaut_id,source,metric,value,unit,measured_at,dataset_id,source_row,original_metric,dataset_filename,measurement_type,quality_flag) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                        (reading['astronaut_id'], demo['source'], reading['metric'], reading['value'], reading['unit'], reading['measured_at'], demo['dataset_id'], number, reading['metric'], 'demo_vitals.json', 'Synthetic demo', demo['quality_flag']))
             conn.close()
             result = backup(destination)
             result['counts'] = status()['counts']
