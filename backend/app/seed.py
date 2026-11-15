@@ -113,7 +113,7 @@ def load_snapshot(path: Path | None = None, *, include_research: bool = True) ->
 def initialize():
     """Load the shared baseline without replacing developer-owned readings."""
     added = load_snapshot() if SNAPSHOT_FILE.is_file() else load_seed_if_empty()
-    db.add_astronauts(json.loads((db.DATA_DIR / 'astronauts.json').read_text()), update_existing=True)
+    db.add_astronauts(json.loads((db.DATA_DIR / 'astronauts.json').read_text(encoding='utf-8')), update_existing=True)
     return added
 
 

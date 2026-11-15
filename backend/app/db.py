@@ -41,7 +41,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]   # .../backend
 DEFAULT_DB_PATH = BACKEND_DIR / "astrohealth.db"
 
 DATA_DIR = Path(__file__).resolve().parents[2] / 'data'
-SCHEMA = (DATA_DIR / 'schema' / 'production.sql').read_text()
+SCHEMA = (DATA_DIR / 'schema' / 'production.sql').read_text(encoding='utf-8')
 SCHEMA, INDEX_SCHEMA = SCHEMA.split('-- Indexes', 1)
 
 

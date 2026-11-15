@@ -2,7 +2,7 @@
 from app import db
 import json
 
-_CONFIG = json.loads((db.DATA_DIR / 'biomarkers.json').read_text())
+_CONFIG = json.loads((db.DATA_DIR / 'biomarkers.json').read_text(encoding='utf-8'))
 _META = {v['measurement_metric']: v for v in _CONFIG['metrics'].values()}
 _ALIASES = _CONFIG.get('metric_aliases', {})
 _UNITS = _CONFIG.get('unit_aliases', {})

@@ -37,6 +37,11 @@ Thumbs.db
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+# MADA model weights and vector database must never enter Git
+services/mada/models/
+services/mada/chroma/
+services/mada/.chroma/
+
 # Reviewed shared demo snapshot only; working databases remain ignored.
 !data/seed/shared_demo.db
 

@@ -69,7 +69,7 @@ class DemoCrewRepository:
         self.stale_after_seconds = 300
 
     def read(self, name):
-        return json.loads((self.directory / f"{name}.json").read_text())
+        return json.loads((self.directory / f"{name}.json").read_text(encoding='utf-8'))
 
     def list_crew(self) -> list[CrewMember]:
         astronauts = self.read("astronauts")
@@ -149,13 +149,13 @@ class DatabaseCrewRepository:
         return list(latest.values())
 
     def list_crew(self) -> list[CrewMember]:
-        rules = json.loads((self.data_dir / "rules.json").read_text())
+        rules = json.loads((self.data_dir / "rules.json").read_text(encoding='utf-8'))
         self.stale_after_seconds = rules["stale_after_seconds"]
         self.combined_rules = rules.get("combined", {})
         self.rising_rules = rules.get("rising", {})
         if db.roster_is_empty():
             # First run: fill the roster from the demo profiles.
-            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text()))
+            db.add_astronauts(json.loads((self.data_dir / "astronauts.json").read_text(encoding='utf-8')))
 
         members = []
         for astronaut in db.list_astronauts():

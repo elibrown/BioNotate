@@ -43,6 +43,19 @@ CREATE TABLE IF NOT EXISTS measurements (
     imported_at TEXT
 );
 
+-- MADA retains the stateless agent's text/check conversation for follow-up
+-- turns. The patient must be a real roster member, distinct from responder.
+CREATE TABLE IF NOT EXISTS mada_assessments (
+    id                    TEXT PRIMARY KEY,
+    patient_id            TEXT NOT NULL REFERENCES astronauts(id),
+    responder_id          TEXT,
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL,
+    action                TEXT NOT NULL,
+    turns_json            TEXT NOT NULL,
+    latest_response_json  TEXT NOT NULL
+);
+
 -- Indexes
 -- Apply after production table creation/upgrade.
 CREATE INDEX IF NOT EXISTS idx_predictions_astronaut
@@ -56,3 +69,6 @@ CREATE INDEX IF NOT EXISTS idx_measurements_trend
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_measurements_import ON measurements
     (dataset_id, source_row, original_metric) WHERE dataset_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_mada_patient_history
+    ON mada_assessments (patient_id, updated_at);
