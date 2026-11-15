@@ -49,19 +49,21 @@ def health_check():
 @app.get("/", include_in_schema=False)
 def dashboard_page():
     """Crew health dashboard."""
-    return FileResponse(FRONTEND_DIR / "index.html")
+    return FileResponse(FRONTEND_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/upload", include_in_schema=False)
 def upload_page():
     return FileResponse(FRONTEND_DIR / "upload.html")
 
+@app.get("/audio", include_in_schema=False)
+def audio_page():
+    return FileResponse(
+        FRONTEND_DIR / "audio.html",
+        headers={"Cache-Control": "no-cache"},
+    )
+
 
 @app.get("/measurements", include_in_schema=False)
 def measurements_page():
     return FileResponse(FRONTEND_DIR / "manual_metrics.html", headers={"Cache-Control": "no-cache"})
-
-
-@app.get("/audio", include_in_schema=False)
-def audio_page():
-    return FileResponse(FRONTEND_DIR / "audio.html", headers={"Cache-Control": "no-cache"})

@@ -20,7 +20,6 @@
   let recording = false;
   let requestingMic = false;
   let submitting = false;
-  let rosterReady = false;
 
   const status = message => { $("audio-status").textContent = message; };
   const count = () => files.filter(Boolean).length;
@@ -62,22 +61,15 @@
     $("audio-task-title").textContent = task.title;
     $("audio-task-detail").textContent = task.detail;
     $("audio-task-target").textContent = task.target;
-    $("audio-record").disabled = requestingMic || submitting;
-    $("audio-record").textContent = recording ? "Stop recording" : "Start recording";
-    $("audio-record").classList.toggle("is-recording", recording);
-    $("audio-record").setAttribute("aria-pressed", String(recording));
+    $("audio-record").disabled = busy();
+    $("audio-stop").disabled = !recording;
     $("audio-retry").disabled = busy() || !files[step];
     $("audio-file").disabled = busy();
     $("audio-prev").disabled = busy() || step === 0;
     $("audio-next").hidden = step === TASKS.length - 1;
     $("audio-next").disabled = busy() || !files[step];
-    $("audio-send").disabled = busy() || !allReady();
-    $("audio-astronaut").disabled = busy() || !rosterReady;
-    $("audio-submit-help").textContent = !allReady()
-      ? "Complete all five recordings to submit."
-      : !$("audio-astronaut").value.trim()
-        ? "All recordings are ready. Select an astronaut above before submitting."
-        : "All recordings are ready to submit.";
+    $("audio-send").disabled = busy() || !allReady() || !$("audio-astronaut").value.trim();
+    $("audio-astronaut").disabled = busy();
     renderChecklist();
   }
   function changeStep(next) {
@@ -121,10 +113,6 @@
   }
 
   $("audio-record").addEventListener("click", async () => {
-    if (recording) {
-      if (recorder?.state === "recording") recorder.stop();
-      return;
-    }
     if (busy()) return;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       status("Microphone recording requires a supported browser using HTTPS or localhost.");
@@ -136,31 +124,9 @@
       return;
     }
     requestingMic = true;
-    status("Waiting for microphone permission. Allow microphone access in your browser to start recording.");
     render();
     try {
-      let expired = false;
-      let permissionTimer;
-      const permission = navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        if (expired) {
-          stream.getTracks().forEach(track => track.stop());
-          throw new Error("Microphone request expired. Please try recording again.");
-        }
-        return stream;
-      });
-      try {
-        micStream = await Promise.race([
-          permission,
-          new Promise((resolve, reject) => {
-            permissionTimer = setTimeout(() => {
-              expired = true;
-              reject(new Error("Microphone permission is still pending. Check the browser microphone permission, then try again."));
-            }, 20000);
-          })
-        ]);
-      } finally {
-        clearTimeout(permissionTimer);
-      }
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const activeRecorder = new MediaRecorder(micStream, { mimeType });
       const chunks = [];
       let recorderError = null;
@@ -199,6 +165,9 @@
     }
   });
 
+  $("audio-stop").addEventListener("click", () => {
+    if (recorder?.state === "recording") recorder.stop();
+  });
   $("audio-file").addEventListener("change", event => {
     if (!busy() && event.target.files[0]) saveFile(event.target.files[0]);
   });
@@ -215,43 +184,12 @@
   $("audio-next").addEventListener("click", () => {
     if (files[step]) changeStep(step + 1);
   });
-  $("audio-astronaut").addEventListener("change", render);
-  async function loadAstronauts() {
-    rosterReady = false;
-    $("audio-roster-retry").hidden = true;
-    $("audio-roster-status").textContent = "Loading available astronauts…";
-    render();
-    try {
-      const response = await fetch("/api/dashboard", {cache:"no-store", signal:AbortSignal.timeout(10000)});
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const dashboard = await response.json();
-      if (dashboard.mode !== "live") throw new Error("Audio submissions require the database crew roster.");
-      $("audio-astronaut").replaceChildren(
-        new Option("Select an astronaut", ""),
-        ...dashboard.crew.map(member => new Option(`${member.name} · ${member.id}`, member.id))
-      );
-      rosterReady = dashboard.crew.length > 0;
-      $("audio-roster-status").textContent = rosterReady ? "" : "No astronauts available in the database.";
-      $("audio-roster-retry").hidden = rosterReady;
-    } catch (error) {
-      $("audio-astronaut").replaceChildren(new Option("Astronauts unavailable", ""));
-      $("audio-roster-status").textContent = `Could not load astronauts: ${error.message}`;
-      $("audio-roster-retry").hidden = false;
-    }
-    render();
-  }
-  $("audio-roster-retry").addEventListener("click", loadAstronauts);
+  $("audio-astronaut").addEventListener("input", render);
 
   $("audio-send").addEventListener("click", async () => {
     if (busy() || !allReady()) return;
     const astronautId = $("audio-astronaut").value.trim();
-    if (!astronautId) {
-      status("Select an astronaut before submitting. Your five recordings are still saved on this page.");
-      $("audio-astronaut").focus();
-      $("audio-astronaut").scrollIntoView({behavior:"smooth", block:"center"});
-      $("audio-astronaut").reportValidity();
-      return;
-    }
+    if (!astronautId) { status("Enter an astronaut ID before submitting."); return; }
     if (totalBytes() > MAX_BYTES) { status("All recordings together must fit within 10 MiB."); return; }
     const form = new FormData();
     form.append("astronaut_id", astronautId);
@@ -261,7 +199,7 @@
     render();
     status("Submitting all five recordings for analysis...");
     try {
-      const response = await fetch("/api/audio", { method: "POST", body: form, signal: AbortSignal.timeout(120000) });
+      const response = await fetch("/api/audio", { method: "POST", body: form });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         const detail = payload?.detail;
@@ -294,7 +232,7 @@
         throw new Error("The server did not return an analysis status. Check that the updated audio API is deployed.");
       }
     } catch (error) {
-      status(error.name === "TimeoutError" ? "Analysis timed out after two minutes. The server may still finish processing; check the dashboard before submitting again." : `Could not complete assessment: ${error.message}`);
+      status(`Could not complete assessment: ${error.message}`);
     } finally {
       submitting = false;
       render();
@@ -309,5 +247,4 @@
   });
   render();
   showPreview();
-  loadAstronauts();
 })();
