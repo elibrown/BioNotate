@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AstroHealth · Crew monitoring</title>
-<link rel="stylesheet" href="/static/dashboard.css">
-<script src="/static/dashboard.js" defer></script>
+<link rel="stylesheet" href="/static/dashboard.css?v=bionotate-4">
+<script src="/static/dashboard.js?v=profile-1" defer></script>
 </head>
-<body>
+<body class="bionotate">
 <aside class="sidebar" aria-label="AstroHealth navigation">
   <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></a>
   <nav class="rail-nav" aria-label="Main navigation">
@@ -16,14 +16,11 @@
   <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
 </aside>
 <main>
-<div class="heading"><div><p class="eyebrow">HUMAN PERFORMANCE MONITORING</p><h1>Crew health overview</h1><p class="muted">A shared view of the people behind the mission.</p></div><button id="refresh">Refresh data ↻</button></div>
-<p class="demo">DEMO ENVIRONMENT · Synthetic readings and illustrative alert limits. No live monitoring or clinical assessment.</p>
-<p id="connection" role="status">Connecting to crew telemetry…</p>
-<section id="summary" class="summary" aria-label="Crew summary"></section>
-<div class="section-heading"><h2>Crew status</h2><label>Show <select id="filter"><option value="all">All crew</option><option value="alert">Needs attention</option><option value="normal">Healthy</option><option value="unknown">Unknown</option></select></label></div>
+<header class="dashboard-header"><div><h1>Bionotate</h1><h2>Dashboard</h2></div><section id="summary" class="summary" aria-label="Crew summary"></section><p id="connection" role="status">Connecting…</p></header>
+<div class="section-heading crew-heading"><span>Crew overview</span><label>Show <select id="filter"><option value="all">All crew</option><option value="alert">Needs attention</option><option value="normal">Healthy</option><option value="unknown">Unknown</option></select></label></div>
 <section id="crew" class="crew" aria-label="Crew members"></section>
-<section class="alerts" id="alerts-panel"><div class="section-heading"><div><p class="eyebrow">EXCEPTIONS & OBSERVATIONS</p><h2>Health alerts</h2></div><span id="alert-count"></span></div><p class="muted">Alerts appear when a stored reading falls outside its configured range. Historical alerts stay visible if data becomes stale.</p><div id="alerts" aria-live="polite"></div></section>
-<footer>ASTROHEALTH / EARLY RISK DETECTION <span>Refreshes every 15 seconds · Readings older than 5 minutes marked stale</span></footer>
+<section class="alerts" id="alerts-panel"><div class="section-heading"><h2><img src="/ui-assets/status-placeholder.svg" alt=""> Status Report <small id="alert-count"></small></h2><div class="report-actions"><button id="refresh">↻ Refresh data</button><a class="video-action" href="/upload">▷ Video analysis ↗</a></div></div><div id="alerts" aria-live="polite"></div></section>
+<footer><span>Demo environment · Illustrative alert limits</span><a href="/measurements">Add manual measurement ↗</a><span>Refreshes every 15 seconds</span></footer>
 </main>
 <dialog id="detail" aria-labelledby="detail-title"><div class="section-heading"><span class="eyebrow">CREW MEMBER / DETAIL</span><button id="close">Close ×</button></div><div id="detail-content"></div></dialog>
 </body></html>

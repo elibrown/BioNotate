@@ -34,6 +34,7 @@ app.include_router(predictions.router)
 app.include_router(measurements.router)
 app.include_router(dashboard.router)
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+app.mount("/ui-assets", StaticFiles(directory=FRONTEND_DIR.parent / "data" / "ui"), name="ui-assets")
 
 
 @app.get("/api/health")
