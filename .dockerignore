@@ -25,3 +25,4 @@ data/*
 !data/schema
 !data/biomarkers.json
 docs/*.mp4
+docs/*.gif
