@@ -25,6 +25,17 @@
     <label>Astronaut ID (optional)<br><input type="text" id="astronaut_id"></label><br>
     <label for="video">Video file</label>
     <input type="file" id="video" accept="video/*">
+    <div id="browser-camera" style="margin:18px 0;padding:16px;border:1px solid #b5cff1;border-radius:12px;background:#f4f9ff;">
+      <strong>Or record a video with your webcam</strong>
+      <p style="margin:7px 0 10px;">Use a well-lit face in frame. Record at least 30 seconds (60 recommended).</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button type="button" id="camera-start">Start video recording</button>
+        <button type="button" id="camera-stop" disabled>Stop</button>
+        <span id="camera-timer" aria-live="off">00:00 / 02:00</span>
+      </div>
+      <video id="camera-preview" playsinline muted hidden style="margin-top:12px;max-width:100%;width:440px;aspect-ratio:4/3;object-fit:cover;border-radius:10px;background:#18283d;"></video>
+      <p id="camera-status" role="status" aria-live="polite" style="margin:10px 0 0;">Camera recording is optional. You can still upload an existing video.</p>
+    </div>
     <br>
     <button id="upload">Upload</button>
     <pre id="result" role="status">No result yet.</pre>
@@ -36,7 +47,7 @@
     const output = document.getElementById("result");
 
     button.addEventListener("click", async () => {
-      const file = document.getElementById("video").files[0];
+      const file = window.astroRecordedVideo || document.getElementById("video").files[0];
       if (!file) { output.textContent = "Please choose a video first."; return; }
 
       const astronautId = document.getElementById("astronaut_id").value.trim();
@@ -118,5 +129,6 @@
       }
     }
   </script>
+  <script src="/static/video_capture.js?v=camera1"></script>
 </body>
 </html>
