@@ -27,6 +27,14 @@ class NewMeasurement(BaseModel):
     source: str = "manual"          # where the value came from
 
 
+@router.get("/astronauts")
+def list_astronauts():
+    """Roster only, without loading metrics or calculating health status."""
+    roster = {row["crew_id"]: {"id": row["crew_id"], "name": row["crew_name"],
+              "role": row["crew_role"]} for row in db.dashboard_readings(60)}
+    return list(roster.values())
+
+
 @router.get("/measurements")
 def list_measurements(
     astronaut_id: str | None = None,

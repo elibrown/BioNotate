@@ -22,11 +22,14 @@
   <h1>Upload video</h1>
   <div class="card upload-card">
     <p>Choose a video with a visible face and press <b>Upload</b>. Cardiorespiratory analysis needs at least 30 seconds of usable footage (1 minute or more is best; phone videos up to 500 MB, about 3.5 minutes, are fine) and returns HR, RR, and PRQ. The result appears below.</p>
-    <label>Astronaut ID (optional)<br><input type="text" id="astronaut_id"></label><br>
+    <label for="astronaut_id">Astronaut</label>
+    <select id="astronaut_id" required disabled>
+      <option value="">Loading crew...</option>
+    </select><br>
     <label for="video">Video file</label>
     <input type="file" id="video" accept="video/*">
     <br>
-    <button id="upload">Upload</button>
+    <button id="upload" disabled>Upload</button>
     <pre id="result" role="status">No result yet.</pre>
   </div>
 
@@ -35,11 +38,46 @@
     const button = document.getElementById("upload");
     const output = document.getElementById("result");
 
+    const astronautSelect = document.getElementById("astronaut_id");
+
+    function showCrew(crew) {
+      astronautSelect.replaceChildren(new Option("Select an astronaut", ""));
+      for (const member of crew) {
+        astronautSelect.add(new Option(`${member.name} (${member.id})`, member.id));
+      }
+      astronautSelect.disabled = false;
+      button.disabled = false;
+    }
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('bionotate.crew'));
+      if (saved && Date.now() - saved.at < 60000 && saved.data.length) showCrew(saved.data);
+    } catch (_) {}
+
+    async function loadCrew() {
+      try {
+        const response = await fetch("/api/astronauts", { cache: "no-store" });
+        if (!response.ok) throw new Error("Could not load the crew roster.");
+        const crew = await response.json();
+        if (!crew?.length) throw new Error("No astronauts are available.");
+        const selected = astronautSelect.value;
+        showCrew(crew);
+        if (crew.some(member => member.id === selected)) astronautSelect.value = selected;
+        try { sessionStorage.setItem('bionotate.crew', JSON.stringify({at:Date.now(), data:crew})); } catch (_) {}
+      } catch (error) {
+        astronautSelect.replaceChildren(new Option("Crew unavailable", ""));
+        astronautSelect.disabled = true;
+        button.disabled = true;
+        output.textContent = `${error.message} Refresh the page to retry.`;
+      }
+    }
+    loadCrew();
+
     button.addEventListener("click", async () => {
+      const astronautId = astronautSelect.value;
+      if (!astronautId) { output.textContent = "Please select an astronaut first."; return; }
       const file = document.getElementById("video").files[0];
       if (!file) { output.textContent = "Please choose a video first."; return; }
 
-      const astronautId = document.getElementById("astronaut_id").value.trim();
 
       button.disabled = true;
       try {

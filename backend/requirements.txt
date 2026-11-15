@@ -67,3 +67,5 @@ websockets==17.4
 opencv-contrib-python-headless==5.0.0.93
 ./vendor/cardioresp-0.2.0-py3-none-any.whl
 ./vendor/voicebiomarker-0.1.0-py3-none-any.whl
+
+turso-serverless==0.1.0

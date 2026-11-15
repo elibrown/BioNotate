@@ -232,6 +232,10 @@ async function refresh() {
     const response = await fetch('/api/dashboard', {cache:'no-store', signal:AbortSignal.timeout(10000)});
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     snapshot = await response.json(); classify(snapshot); failed = false;
+    try {
+      sessionStorage.setItem('bionotate.dashboard', JSON.stringify({at:Date.now(), data:snapshot}));
+      sessionStorage.setItem('bionotate.crew', JSON.stringify({at:Date.now(), data:snapshot.crew.map(({id,name,role}) => ({id,name,role}))}));
+    } catch (_) {}
     render();
     $('connection').textContent = snapshot.mode === 'live'
       ? `Updated ${time(snapshot.generated_at)}`
@@ -258,5 +262,13 @@ $('detail').addEventListener('close', () => { selectedId = null; });
 // Demo profile details (age, blood type, height, weight) kept beside the crew photos.
 let profiles = {};
 fetch('/ui-assets/crew/profiles.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : {}).then(data => { profiles = data; if (selectedId) renderDetail(); }).catch(() => {});
+// Render the last successful response before waiting for the network on navigation.
+try {
+  const saved = JSON.parse(sessionStorage.getItem('bionotate.dashboard'));
+  if (saved && Date.now() - saved.at < 60000) {
+    snapshot = saved.data; classify(snapshot); render();
+    $('connection').textContent = `Saved data from ${time(snapshot.generated_at)} · Refreshing…`;
+  }
+} catch (_) {}
 refresh();
 setInterval(refresh, 15000);
