@@ -1,4 +1,4 @@
-# BioNotate · astro-health-monitor
+# BioNotate
 
 **Live site: https://bionotate.web.app** (public, no sign-in)
 
