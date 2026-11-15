@@ -118,7 +118,6 @@ function renderDetail() {
   const vitals = [vital(member, 'heart_rate', 'Heart Rate', 'bpm'), vital(member, 'respiratory_rate', 'Respiratory Rate', 'br/min')];
   const readings = member.manual_measurements || [];
   const bodySrc = BODY_IMAGES[member.id];
-  const [first, ...rest] = member.name.split(' ');
   const info = profiles[member.id] || {};
   const facts = [['calendar','Age', info.age], ['drop','Blood Type', info.blood_type],
                  ['ruler','Height', info.height_m != null ? info.height_m.toFixed(2) + 'm' : null],
@@ -129,7 +128,7 @@ function renderDetail() {
   ${failed ? '<p role="status">Refresh failed; showing last retrieved snapshot.</p>' : ''}
   <div class="profile-grid">
     <section class="body-panel" aria-label="Crew illustration and latest vitals">
-      <span class="body-caption">${escapeHTML(first)}<br>${escapeHTML(rest.join(' '))}</span>
+      <span class="body-caption">${escapeHTML(member.name)}</span>
       <div class="body-figure ${bodySrc ? 'full-body' : 'headshot'}"><img src="${bodySrc || portrait(member.id)}" alt="Picture of ${escapeHTML(member.name)}" ${photoFallback}></div>
       <div class="body-vitals">${vitals.map(m => `<div class="vital-callout ${outOfRange(m) ? 'out' : ''}"><span>${icon(metricIcon(m.key))}${m.key === 'heart_rate' ? 'Heart Rate' : 'Respiratory Rate'}</span><strong>${escapeHTML(m.value ?? '—')} <small>${escapeHTML(m.unit)}</small>${trendArrow(m)}</strong></div>`).join('')}</div>
     </section>
