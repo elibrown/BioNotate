@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AstroHealth API",
+    title="BioNotate API",
     description="Astronaut health monitoring and early risk detection",
     version="0.1.0",
     lifespan=lifespan,
@@ -42,7 +42,7 @@ app.mount("/ui-assets", StaticFiles(directory=FRONTEND_DIR.parent / "data" / "ui
 def health_check():
     return {
         "status": "ok",
-        "service": "astro-health-backend",
+        "service": "bionotate-backend",
         "version": "0.1.0",
     }
 

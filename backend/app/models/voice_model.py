@@ -1,5 +1,5 @@
 """
-Voice model adapter for AstroHealth (voicebiomarker 0.1.0).
+Voice model adapter for BioNotate (voicebiomarker 0.1.0).
 
 The astronaut records FIVE short clips (TASKS below). The model returns a
 "vocal biomarker" score plus voice-quality measures (pitch, voice clarity,

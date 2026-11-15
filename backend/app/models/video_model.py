@@ -1,6 +1,6 @@
 
 """
-Cardiorespiratory model adapter for AstroHealth.
+Cardiorespiratory model adapter for BioNotate.
 
 Estimates heart rate (HR), respiratory rate (RR),
 and pulse-respiration quotient (PRQ) from a recording.

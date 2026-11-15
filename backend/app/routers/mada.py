@@ -1,6 +1,6 @@
 """MADA bridge, patient identity, follow-up turns and trend retrieval.
 
-MADA is a SEPARATE model service. AstroHealth owns patient identity and
+MADA is a SEPARATE model service. BioNotate owns patient identity and
 conversation/history storage. These demo endpoints require explicit opt-in;
 use authentication and durable encrypted storage before real-world use.
 """

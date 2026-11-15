@@ -1,9 +1,9 @@
 # Model 3 — MADA integration (prototype)
 
-The MADA handoff is integrated into AstroHealth as a **separate** model service.
+The MADA handoff is integrated into BioNotate as a **separate** model service.
 The original handoff code, knowledge files, and tests are included unchanged in
 `services/mada/`, except the Compose port is bound to localhost (`8010`) to
-avoid clashing with AstroHealth's `8000` and accidentally exposing an
+avoid clashing with BioNotate's `8000` and accidentally exposing an
 unauthenticated clinical service.
 
 ## What this adds
@@ -48,7 +48,7 @@ A-02, but the assessment remains linked to Patient A-02.
    the `models` directory. The included Docker Compose file binds the MADA
    FastAPI port to `http://127.0.0.1:8010` and requires NVIDIA GPU Docker
    support. The llama.cpp server is internal to that Compose network.
-2. In a *new* PowerShell window, activate the existing AstroHealth venv:
+2. In a *new* PowerShell window, activate the existing BioNotate (`astro-health-monitor`) venv:
 
    ```powershell
    cd "$HOME\Documents\astro-health-monitor\backend"
@@ -70,12 +70,12 @@ MADA with a mock, so they require neither the weights nor a GPU.
 
 ## Deployment/security blockers
 
-The current GitHub Action deploys **only the AstroHealth CPU Dockerfile**. It
+The current GitHub Action deploys **only the BioNotate CPU Dockerfile**. It
 will not deploy the new MADA GPU service automatically. A team member must
 provision a separate private model service and configure `MADA_SERVICE_URL`.
 
 **Never enable `MADA_DEMO_ENABLED=1` on the public Cloud Run deployment as-is.**
-AstroHealth currently lacks end-user authentication and access control. MADA
+BioNotate currently lacks end-user authentication and access control. MADA
 retains sensitive assessment text, and its endpoints must not be public for
 real patients. Before public access, implement authentication, per-patient
 access permissions, transport protection, rate limits, retention/deletion,

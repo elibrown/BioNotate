@@ -18,7 +18,7 @@ def configured() -> bool:
 
 
 def enabled() -> bool:
-    # Explicit opt-in: the current AstroHealth prototype has no user auth.
+    # Explicit opt-in: the current BioNotate prototype has no user auth.
     # This gate prevents accidentally exposing sensitive assessment history on
     # the existing public Cloud Run deployment.
     return os.environ.get("MADA_DEMO_ENABLED") == "1"
