@@ -214,6 +214,7 @@ body{padding-left:74px}
 .body-caption{color:#8b9cb8;font-size:28px;line-height:1.2}
 .body-figure{display:grid;place-items:center;height:100%}
 .body-figure img{max-width:100%;max-height:430px;object-fit:contain}
+.body-figure.full-body img{border-radius:18px;box-shadow:0 6px 20px #263f6433}
 .body-figure.headshot img{max-height:300px;border-radius:24px;box-shadow:0 6px 20px #263f6433}
 .vital-callout{border-color:#b5cff1;background:#fff}
 .vital-callout.out{border-color:#ef3b3b;box-shadow:0 4px 14px #ef3b3b22}
