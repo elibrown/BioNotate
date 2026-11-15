@@ -1,5 +1,5 @@
 {
-  "stale_after_seconds": 300,
+  "stale_after_seconds": null,
   "metrics": {
     "heart_rate": {
       "label": "Heart rate",
