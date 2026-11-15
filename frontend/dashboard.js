@@ -3,15 +3,20 @@ const $ = id => document.getElementById(id);
 let snapshot = null, selectedId = null, loading = false, failed = false;
 const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const never = value => new Date(value).getTime() === 0;
-const time = value => never(value) ? 'never (no readings yet)' : new Date(value).toLocaleString();
-const day = value => new Date(value).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
-const clock = value => new Date(value).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
-const observed = value => never(value) ? 'never (no readings yet)' : `${day(value)} ${clock(value)}`;
+const time = value => {
+  if (!value || !Number.isFinite(new Date(value).getTime())) return '—';
+  if (never(value)) return 'never (no readings yet)';
+  return new Date(value).toISOString().slice(0,19).replace(/-/g, '').replace('T', ' ');
+};
+const day = value => time(value).split(' ')[0];
+const clock = value => time(value).split(' ')[1] || '';
+const observed = value => time(value);
 const statusLabel = status => ({normal:'Within range', alert:'Needs attention', warning:'Check required', unknown:'Check required'}[status] || 'Check required');
 
 // A vital sign (heart or respiratory rate) outside its configured range is a warning (yellow).
 // Other alerts, such as a model score that keeps rising, are red.
 function alertSeverity(alert, member) {
+  if (alert.severity === 'warning' || alert.severity === 'alert') return alert.severity;
   const m = member?.metrics.find(x => x.key === alert.metric);
   return m && m.lower != null && m.upper != null ? 'warning' : 'alert';
 }
@@ -77,31 +82,12 @@ function render() {
         <button data-member="${escapeHTML(m.id)}">Check Status</button>
       </div></article>`;
   }).join('') || '<p class="empty">No crew members in this view.</p>';
-  $('alert-count').textContent = alerts.length ? `${alerts.length} out of range` : '';
+  $('alert-count').textContent = alerts.length ? `${alerts.length} issues` : '';
   $('alerts').innerHTML = alerts.map(a => `<button class="alert-row ${escapeHTML(a.severity)}" data-member="${escapeHTML(a.crew_id)}" aria-label="Open profile of ${escapeHTML(a.crew_name)}: ${escapeHTML(a.message)}">
       <strong>${escapeHTML(a.crew_name)}</strong>${icon(metricIcon(a.metric))}<span class="alert-message">${escapeHTML(a.message)}</span>
       <span class="alert-when"><span>Observed ${escapeHTML(day(a.observed_at))}</span><span>${escapeHTML(clock(a.observed_at))}</span></span></button>`).join('')
     || '<p class="empty">No out-of-range readings in this snapshot.</p>';
   if (selectedId) renderDetail();
-}
-
-function trendChart(metric) {
-  const values = metric.history.filter(Number.isFinite).slice(-10);   // latest 10, like the design's TP1..TP5
-  if (!values.length) return '<p class="muted">No stored readings available.</p>';
-  const span = Math.max(metric.upper - metric.lower, 1);
-  const low = Math.min(metric.lower - span * .2, ...values);
-  const high = Math.max(metric.upper + span * .2, ...values);
-  const y = value => 104 - (value - low) * 94 / (high - low);
-  const x = index => 50 + 20 + index * 390 / Math.max(values.length - 1, 1);
-  const points = values.map((v,i) => `${x(i)},${y(v)}`).join(' ');
-  return `<svg class="vital-chart" viewBox="0 0 500 130" role="img" aria-label="${escapeHTML(metric.label)}: ${escapeHTML(values.join(', '))} ${escapeHTML(metric.unit)}. Configured range ${metric.lower} to ${metric.upper}.">
-    <rect x="50" y="10" width="430" height="94" fill="#fcdada"/>
-    <rect x="50" y="${y(metric.upper)}" width="430" height="${y(metric.lower)-y(metric.upper)}" fill="#d3f8df"/>
-    <path d="M50 ${y(metric.upper)}H480" stroke="#c73535"/><path d="M50 ${y(metric.lower)}H480" stroke="#f0a020" stroke-dasharray="6 4"/>
-    <path d="M50 10V104H480" fill="none" stroke="#334e7c"/>
-    <text x="44" y="${y(metric.upper)+4}" text-anchor="end">${escapeHTML(metric.upper)}</text><text x="44" y="${y(metric.lower)+4}" text-anchor="end">${escapeHTML(metric.lower)}</text>
-    <polyline points="${points}" fill="none" stroke="#ef3b3b" stroke-width="2.5"/>${values.map((v,i) => `<circle cx="${x(i)}" cy="${y(v)}" r="4.5" fill="#ef3b3b"/>`).join('')}
-    ${values.map((v,i) => `<text x="${x(i)}" y="124" text-anchor="middle">TP${i+1}</text>`).join('')}</svg>`;
 }
 
 function trendArrow(m) {
@@ -111,10 +97,93 @@ function trendArrow(m) {
   return `<span class="trend-flag ok" title="Within configured range">${icon('check')}</span>`;
 }
 
+const storedTrendCache = new Map();
+const storedTrendPending = new Set();
+async function loadStoredTrends(id) {
+  if (storedTrendPending.has(id) || Date.now() - (storedTrendCache.get(id)?.at || 0) < 15000) return;
+  storedTrendPending.add(id);
+  try {
+    const response = await fetch(`/api/measurements/trends?astronaut_id=${encodeURIComponent(id)}`, {signal:AbortSignal.timeout(10000)});
+    if (!response.ok) throw new Error('Unable to load measurements');
+    storedTrendCache.set(id, {at:Date.now(), data:await response.json()});
+  } catch (_) { storedTrendCache.set(id, {at:Date.now(), error:true}); }
+  finally { storedTrendPending.delete(id); if (selectedId === id) renderDetail(); }
+}
+const storedTrendAxis = new Map();
+const metricNumber = value => Number(value).toLocaleString(undefined, {maximumFractionDigits:2});
+function metricGroups(series) {
+  const groups = new Map();
+  for (const item of series) {
+    const unit = item.unit === 'br/min' ? 'breaths/min' : item.unit || '';
+    const key = `${item.metric}::${unit}`;
+    const group = groups.get(key) || {key, metric:item.metric, label:item.label, unit, axes:new Map()};
+    const points = group.axes.get(item.axis) || [];
+    points.push(...item.points);
+    group.axes.set(item.axis, points);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    for (const [axis, raw] of group.axes) {
+      const points = axis === 'mission_phase'
+        ? [...raw.reduce((map, p) => {
+            const old = map.get(p.phase_index);
+            if (!old || (p.imported_at || '') > (old.imported_at || '') || ((p.imported_at || '') === (old.imported_at || '') && p.id > old.id)) map.set(p.phase_index, p);
+            return map;
+          }, new Map()).values()]
+        : [...new Map(raw.map(p => [p.id, p])).values()];
+      points.sort((a,b) => axis === 'mission_phase' ? a.phase_index-b.phase_index : Date.parse(a.measured_at)-Date.parse(b.measured_at) || a.id-b.id);
+      group.axes.set(axis, points);
+    }
+  }
+  return [...groups.values()].sort((a,b) => ({hr_bpm:0,respi_rate:1}[a.metric] ?? 2)-({hr_bpm:0,respi_rate:1}[b.metric] ?? 2) || a.label.localeCompare(b.label));
+}
+function storedMetricChart(series, range = {}) {
+  const points = series.points.map(p => ({...p, x:series.axis === 'mission_phase' ? p.phase_index : Date.parse(p.measured_at)})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.value)).slice(-10).map((point, position) => ({...point, position}));
+  if (!points.length) return '<p>No observations available.</p>';
+  const ys = points.map(p => p.value);
+  const ranged = Number.isFinite(range.lower) && Number.isFinite(range.upper);
+  const low = Math.min(...ys, ...(ranged ? [range.lower] : [])), high = Math.max(...ys, ...(ranged ? [range.upper] : []));
+  const pad = Math.max((high-low)*.2, Math.abs(low)*.01, .01);
+  const x = position => points.length === 1 ? 260 : 60+position/(points.length-1)*400;
+  const y = value => 110-(value-low+pad)/(high-low+2*pad)*90;
+  const label = p => series.axis === 'mission_phase' ? p.mission_phase : time(p.measured_at);
+  const segments = [];
+  for (const point of points) {
+    const last = segments[segments.length-1];
+    if (last && (series.axis !== 'mission_phase' || point.x-last[last.length-1].x === 1)) last.push(point);
+    else segments.push([point]);
+  }
+  return `<svg class="vital-chart stored-metric-chart" viewBox="0 0 500 135" role="img" aria-label="${escapeHTML(series.label)} readings in ${escapeHTML(series.unit || '')}">
+    ${ranged ? `<rect x="60" y="15" width="400" height="105" fill="#fcdada"/><rect x="60" y="${y(range.upper)}" width="400" height="${y(range.lower)-y(range.upper)}" fill="#d3f8df"/><path d="M60 ${y(range.upper)}H460" stroke="#c73535"/><path d="M60 ${y(range.lower)}H460" stroke="#f0a020" stroke-dasharray="6 4"/>` : ''}
+    <path d="M60 15V120H460" fill="none" stroke="#334e7c"/>
+    <text x="52" y="${y(ranged ? range.upper : high)+4}" text-anchor="end">${metricNumber(ranged ? range.upper : high)}</text><text x="52" y="${y(ranged ? range.lower : low)+4}" text-anchor="end">${metricNumber(ranged ? range.lower : low)}</text>
+    ${segments.map(segment => `<polyline points="${segment.map(p => `${x(p.position)},${y(p.value)}`).join(' ')}" fill="none" stroke="#ef3b3b" stroke-width="2.5"/>`).join('')}
+    ${points.map(point => `<circle cx="${x(point.position)}" cy="${y(point.value)}" r="4.5" fill="#ef3b3b"><title>${escapeHTML(label(point))}: ${point.value} ${escapeHTML(series.unit || '')}</title></circle>`).join('')}</svg>
+    <div class="chart-time-bounds"><span>${escapeHTML(label(points[0]))}</span><span>${points.length > 1 ? escapeHTML(label(points[points.length-1])) : ''}</span></div>`;
+}
+function storedTrends(id, vitals = []) {
+  const cached = storedTrendCache.get(id);
+  if (!cached) return '<p role="status">Loading measurements…</p>';
+  if (cached.error) return '<p role="status">Unable to load metric trends. Use Refresh data to retry.</p>';
+  const groups = metricGroups(cached.data.series);
+  if (!groups.length) return '<p>No measurements recorded.</p>';
+  return groups.map(group => {
+    const stateKey = `${id}:${group.key}`;
+    const axis = group.axes.has(storedTrendAxis.get(stateKey)) ? storedTrendAxis.get(stateKey) : group.axes.has('timestamp') ? 'timestamp' : 'mission_phase';
+    const points = group.axes.get(axis);
+    const range = vitals.find(m => m.key === ({hr_bpm:'heart_rate',respi_rate:'respiratory_rate'}[group.metric])) || {};
+    const displayLabel = range.label || group.label;
+    return `<div class="vital-trend stored-metric"><div><h3>${escapeHTML(displayLabel)}</h3><strong>${metricNumber(points[points.length-1].value)} <small>${escapeHTML(group.unit)}</small></strong>
+      ${group.axes.size > 1 ? `<label class="metric-axis-label">View <select data-metric-axis="${escapeHTML(stateKey)}" aria-label="Time axis for ${escapeHTML(displayLabel)}">${[...group.axes.keys()].map(key => `<option value="${key}" ${axis === key ? 'selected' : ''}>${key === 'timestamp' ? 'Recorded time' : 'Mission phases'}</option>`).join('')}</select></label>` : ''}
+      </div><div>${storedMetricChart({...group, axis, points}, range)}<details><summary>Measurement values</summary><table><thead><tr><th>${axis === 'timestamp' ? 'Timestamp (UTC)' : 'Mission phase'}</th><th>${escapeHTML(group.unit || 'Value')}</th></tr></thead><tbody>${points.map(point => `<tr><td>${escapeHTML(axis === 'mission_phase' ? point.mission_phase : time(point.measured_at))}</td><td>${metricNumber(point.value)}</td></tr>`).join('')}</tbody></table></details></div></div>`;
+  }).join('') + '<p class="muted">Latest 10 readings, equally spaced by observation order. Timestamps are UTC. Green bands show configured ranges.</p>';
+}
+
 function renderDetail() {
   const member = snapshot.crew.find(m => m.id === selectedId);
   if (!member) { $('detail-content').innerHTML = '<p>Crew member is no longer available.</p>'; return; }
-  const alerts = snapshot.alerts.filter(a => a.crew_id === member.id);
+  loadStoredTrends(member.id);
+  const alerts = member.issues || snapshot.alerts.filter(a => a.crew_id === member.id);
   const vitals = [vital(member, 'heart_rate', 'Heart Rate', 'bpm'), vital(member, 'respiratory_rate', 'Respiratory Rate', 'br/min')];
   const readings = member.manual_measurements || [];
   const bodySrc = BODY_IMAGES[member.id];
@@ -124,7 +193,7 @@ function renderDetail() {
                  ['weight','Weight', info.weight_kg != null ? info.weight_kg + 'kg' : null]];
   const summary = alerts.map(a => `<li class="${a.severity === 'warning' ? 'dot-yellow' : 'dot-red'}">${escapeHTML(a.message)}</li>`).join('')
     || `<li class="${member.status === 'unknown' ? 'dot-yellow' : 'dot-green'}">${member.status === 'unknown' ? 'Insufficient readings to determine status.' : 'No readings outside configured ranges.'}</li>`;
-  $('detail-content').innerHTML = `<header class="profile-header"><strong>Bionotate</strong><h1 id="detail-title">Crew Profile</h1><span class="timestamp">Updated ${escapeHTML(clock(snapshot.generated_at))}</span></header>
+  $('detail-content').innerHTML = `<header class="profile-header"><strong>Bionotate</strong><h1 id="detail-title">Crew Profile</h1><span class="timestamp">Updated ${escapeHTML(time(snapshot.generated_at))}</span></header>
   ${failed ? '<p role="status">Refresh failed; showing last retrieved snapshot.</p>' : ''}
   <div class="profile-grid">
     <section class="body-panel" aria-label="Crew illustration and latest vitals">
@@ -143,13 +212,13 @@ function renderDetail() {
     <section class="profile-panel trends-panel">
       <div class="section-heading"><h2>${icon('trend')} Key Vitals (Trend)</h2><div class="report-actions"><button type="button" class="refresh-action" data-profile-refresh>${icon('refresh')} Refresh data</button><a class="video-action" href="/upload">${icon('play')} Video analysis ${icon('external')}</a></div></div>
       <div class="profile-data-grid">
-        <div>${vitals.map(m => `<div class="vital-trend"><div><h3>${icon(metricIcon(m.key))}${m.key === 'heart_rate' ? 'Heart Rate' : 'Respiratory Rate'}</h3><strong>${escapeHTML(m.value ?? '—')} <small>${escapeHTML(m.unit)}</small></strong></div><div>${trendChart(m)}</div></div>`).join('')}<p class="muted">Green band: configured range. TP1 is the oldest reading.</p></div>
+        <div>${storedTrends(member.id, vitals)}</div>
         <section class="profile-actions"><h2>${icon('medkit')} Recommended Actions</h2>
           <p class="action-row muted">Recommendations are not configured yet.</p>
           <a class="action-row action-link" href="/measurements">${icon('plus')} Add manual measurement ${icon('external')}</a>
           <h3>Saved measurements</h3>
           ${readings.map(m => `<div class="action-row saved-reading"><strong>${escapeHTML(m.label)}</strong><span>${escapeHTML(m.value)} ${escapeHTML(m.unit || '')}</span><small>Measured ${escapeHTML(time(m.measured_at))}</small></div>`).join('') || '<p class="action-row muted">No manual measurements recorded.</p>'}
-          <p class="muted">Manual readings do not affect health status yet.</p>
+          <p class="muted">Manual readings are stored in measurements.</p>
         </section>
       </div>
     </section>
@@ -165,7 +234,7 @@ async function refresh() {
     snapshot = await response.json(); classify(snapshot); failed = false;
     render();
     $('connection').textContent = snapshot.mode === 'live'
-      ? `Updated ${clock(snapshot.generated_at)}`
+      ? `Updated ${time(snapshot.generated_at)}`
       : `Demo replay as of ${time(snapshot.demo_as_of)} · No live sensor connection`;
   } catch (error) {
     failed = true;
@@ -175,8 +244,12 @@ async function refresh() {
 }
 $('refresh').addEventListener('click', refresh);
 $('filter').addEventListener('change', () => snapshot && render());
+document.addEventListener('change', event => {
+  const key = event.target.dataset.metricAxis;
+  if (key) { storedTrendAxis.set(key, event.target.value); if (selectedId) renderDetail(); }
+});
 document.addEventListener('click', event => {
-  if (event.target.closest('[data-profile-refresh]')) { refresh(); return; }
+  if (event.target.closest('[data-profile-refresh]')) { storedTrendCache.clear(); refresh(); return; }
   const button = event.target.closest('[data-member]');
   if (button) { selectedId = button.dataset.member; renderDetail(); if (!$('detail').open) $('detail').showModal(); }
 });

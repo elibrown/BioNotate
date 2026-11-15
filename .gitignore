@@ -36,3 +36,9 @@ Thumbs.db
 # Uploaded videos (keep the folder, not the files)
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Reviewed shared demo snapshot only; working databases remain ignored.
+!data/seed/shared_demo.db
+
+# Local biologist reference copies; the canonical dataset is data/research/.
+/docs/biologist_docs/
