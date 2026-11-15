@@ -8,15 +8,14 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from app import db
-from app.data import management
+from app import seed as management
 from app.main import app
 
 
 class SharedSnapshotTests(TestCase):
     def setUp(self):
         self.tmp = TemporaryDirectory()
-        self.env = patch.dict(os.environ, ASTROHEALTH_DB=str(Path(self.tmp.name) / 'working.db'),
-                              ASTROHEALTH_IMPORT_BIOLOGY='true')
+        self.env = patch.dict(os.environ, ASTROHEALTH_DB=str(Path(self.tmp.name) / 'working.db'))
         self.env.start()
 
     def tearDown(self):
@@ -53,6 +52,8 @@ class SharedSnapshotTests(TestCase):
             crew = client.get('/api/dashboard').json()['crew']
             self.assertEqual(len(crew), 4)
             self.assertTrue(all(m['status'] != 'unknown' for m in crew))
+            self.assertEqual(len(client.get('/api/measurements', params={'source':'biologist_csv'}).json()), 220)
+            self.assertEqual(len(db.list_measurements(limit=10000)), 616)
             self.assertTrue(all(m['value'] is not None for person in crew for m in person['metrics']))
             victor = next(person for person in crew if person['id'] == 'A-02')
             self.assertEqual(victor['status'], 'alert')

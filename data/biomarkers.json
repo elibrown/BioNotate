@@ -1,137 +1,20 @@
 {
-  "phases": {
-    "1": "Pre-flight baseline",
-    "2": "Immediate pre-launch",
-    "3": "In-flight orbit",
-    "4": "Immediate post-flight",
-    "5": "Post-flight recovery"
-  },
-  "crew_mapping": {
-    "A-01": "Astronaut 1",
-    "A-02": "Astronaut 2",
-    "A-03": "Astronaut 3",
-    "A-04": "Astronaut 4"
-  },
   "metrics": {
-    "BM01_WBC": {
-      "canonical_code": "BM01_WBC",
-      "label": "White blood cell count",
-      "unit": "10⁹ cells/L",
-      "modality": "Direct assay",
-      "measurement_metric": "BM01_WBC"
-    },
-    "BM02_Serum_Calcium": {
-      "canonical_code": "BM02_Serum_Calcium",
-      "label": "Serum calcium",
-      "unit": "mg/dL",
-      "modality": "Direct assay",
-      "measurement_metric": "BM02_Serum_Calcium"
-    },
-    "BM03_CRP": {
-      "canonical_code": "BM03_IL6",
-      "label": "Interleukin-6 (IL-6)",
-      "unit": "pg/mL",
-      "modality": "Direct assay",
-      "measurement_metric": "BM03_IL6"
-    },
-    "BM04_Urine_Calcium": {
-      "canonical_code": "BM04_Urine_Calcium",
-      "label": "Urinary calcium proxy",
-      "unit": "mg/day",
-      "modality": "Scaled proxy",
-      "measurement_metric": "BM04_Urine_Calcium"
-    },
-    "BM05_Uromodulin": {
-      "canonical_code": "BM05_LCN2",
-      "label": "Lipocalin-2 / NGAL",
-      "unit": "NPQ",
-      "modality": "Direct assay",
-      "measurement_metric": "BM05_LCN2"
-    },
-    "BM06_Heart_Rate": {
-      "canonical_code": "BM06_Heart_Rate",
-      "label": "Heart rate",
-      "unit": "bpm",
-      "modality": "Direct telemetry",
-      "measurement_metric": "hr_bpm"
-    },
-    "BM07_Respiratory_Rate": {
-      "canonical_code": "BM07_Respiratory_Rate",
-      "label": "Respiratory rate",
-      "unit": "breaths/min",
-      "modality": "Direct telemetry",
-      "measurement_metric": "respi_rate"
-    },
-    "BM08_PTT": {
-      "canonical_code": "BM08_PTT",
-      "label": "Pulse transit time proxy",
-      "unit": "ms",
-      "modality": "Derived proxy",
-      "measurement_metric": "BM08_PTT"
-    },
-    "BM09_WASO": {
-      "canonical_code": "BM09_WASO",
-      "label": "Wake after sleep onset proxy",
-      "unit": "min/night",
-      "modality": "Derived proxy",
-      "measurement_metric": "BM09_WASO"
-    },
-    "BM10_ONSD": {
-      "canonical_code": "BM10_ONSD",
-      "label": "Optic nerve sheath diameter proxy",
-      "unit": "mm",
-      "modality": "Derived proxy",
-      "measurement_metric": "BM10_ONSD"
-    },
-    "BM11_PERCLOS": {
-      "canonical_code": "BM11_PERCLOS",
-      "label": "Eye closure proxy",
-      "unit": "%",
-      "modality": "Derived proxy",
-      "measurement_metric": "BM11_PERCLOS"
-    },
-    "BM12_Skin_Score": {
-      "canonical_code": "BM12_Skin_Score",
-      "label": "Skin score",
-      "unit": "0–10 score",
-      "modality": "Unresolved",
-      "measurement_metric": "BM12_Skin_Score"
-    },
-    "BM03_IL6": {
-      "canonical_code": "BM03_IL6",
-      "label": "Interleukin-6 (IL-6)",
-      "unit": "pg/mL",
-      "modality": "Direct assay",
-      "measurement_metric": "BM03_IL6"
-    },
-    "BM05_LCN2": {
-      "canonical_code": "BM05_LCN2",
-      "label": "Lipocalin-2 / NGAL",
-      "unit": "NPQ",
-      "modality": "Direct assay",
-      "measurement_metric": "BM05_LCN2"
-    }
+    "BM01_WBC": {"canonical_code": "BM01_WBC", "label": "White blood cell count", "unit": "10⁹ cells/L", "modality": "Direct assay", "measurement_metric": "BM01_WBC"},
+    "BM02_Serum_Calcium": {"canonical_code": "BM02_Serum_Calcium", "label": "Serum calcium", "unit": "mg/dL", "modality": "Direct assay", "measurement_metric": "BM02_Serum_Calcium"},
+    "BM03_CRP": {"canonical_code": "BM03_IL6", "label": "Interleukin-6 (IL-6)", "unit": "pg/mL", "modality": "Direct assay", "measurement_metric": "BM03_IL6"},
+    "BM04_Urine_Calcium": {"canonical_code": "BM04_Urine_Calcium", "label": "Urinary calcium proxy", "unit": "mg/day", "modality": "Scaled proxy", "measurement_metric": "BM04_Urine_Calcium"},
+    "BM05_Uromodulin": {"canonical_code": "BM05_LCN2", "label": "Lipocalin-2 / NGAL", "unit": "NPQ", "modality": "Direct assay", "measurement_metric": "BM05_LCN2"},
+    "BM06_Heart_Rate": {"canonical_code": "BM06_Heart_Rate", "label": "Heart rate", "unit": "bpm", "modality": "Direct telemetry", "measurement_metric": "hr_bpm"},
+    "BM07_Respiratory_Rate": {"canonical_code": "BM07_Respiratory_Rate", "label": "Respiratory rate", "unit": "breaths/min", "modality": "Direct telemetry", "measurement_metric": "respi_rate"},
+    "BM08_PTT": {"canonical_code": "BM08_PTT", "label": "Pulse transit time proxy", "unit": "ms", "modality": "Derived proxy", "measurement_metric": "BM08_PTT"},
+    "BM09_WASO": {"canonical_code": "BM09_WASO", "label": "Wake after sleep onset proxy", "unit": "min/night", "modality": "Derived proxy", "measurement_metric": "BM09_WASO"},
+    "BM10_ONSD": {"canonical_code": "BM10_ONSD", "label": "Optic nerve sheath diameter proxy", "unit": "mm", "modality": "Derived proxy", "measurement_metric": "BM10_ONSD"},
+    "BM11_PERCLOS": {"canonical_code": "BM11_PERCLOS", "label": "Eye closure proxy", "unit": "%", "modality": "Derived proxy", "measurement_metric": "BM11_PERCLOS"},
+    "BM12_Skin_Score": {"canonical_code": "BM12_Skin_Score", "label": "Skin score", "unit": "0–10 score", "modality": "Unresolved", "measurement_metric": "BM12_Skin_Score"},
+    "BM03_IL6": {"canonical_code": "BM03_IL6", "label": "Interleukin-6 (IL-6)", "unit": "pg/mL", "modality": "Direct assay", "measurement_metric": "BM03_IL6"},
+    "BM05_LCN2": {"canonical_code": "BM05_LCN2", "label": "Lipocalin-2 / NGAL", "unit": "NPQ", "modality": "Direct assay", "measurement_metric": "BM05_LCN2"}
   },
-  "metric_aliases": {
-    "BM01_WBC": "BM01_WBC",
-    "BM02_Serum_Calcium": "BM02_Serum_Calcium",
-    "BM03_CRP": "BM03_IL6",
-    "BM04_Urine_Calcium": "BM04_Urine_Calcium",
-    "BM05_Uromodulin": "BM05_LCN2",
-    "BM06_Heart_Rate": "hr_bpm",
-    "BM07_Respiratory_Rate": "respi_rate",
-    "BM08_PTT": "BM08_PTT",
-    "BM09_WASO": "BM09_WASO",
-    "BM10_ONSD": "BM10_ONSD",
-    "BM11_PERCLOS": "BM11_PERCLOS",
-    "BM12_Skin_Score": "BM12_Skin_Score",
-    "BM03_IL6": "BM03_IL6",
-    "BM05_LCN2": "BM05_LCN2",
-    "heart_rate": "hr_bpm",
-    "respiratory_rate": "respi_rate"
-  },
-  "unit_aliases": {
-    "br/min": "breaths/min",
-    "BPM": "bpm"
-  }
+  "metric_aliases": {"BM01_WBC": "BM01_WBC", "BM02_Serum_Calcium": "BM02_Serum_Calcium", "BM03_CRP": "BM03_IL6", "BM04_Urine_Calcium": "BM04_Urine_Calcium", "BM05_Uromodulin": "BM05_LCN2", "BM06_Heart_Rate": "hr_bpm", "BM07_Respiratory_Rate": "respi_rate", "BM08_PTT": "BM08_PTT", "BM09_WASO": "BM09_WASO", "BM10_ONSD": "BM10_ONSD", "BM11_PERCLOS": "BM11_PERCLOS", "BM12_Skin_Score": "BM12_Skin_Score", "BM03_IL6": "BM03_IL6", "BM05_LCN2": "BM05_LCN2", "heart_rate": "hr_bpm", "respiratory_rate": "respi_rate"},
+  "unit_aliases": {"br/min": "breaths/min", "BPM": "bpm"}
 }

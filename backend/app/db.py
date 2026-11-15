@@ -42,7 +42,7 @@ DEFAULT_DB_PATH = BACKEND_DIR / "astrohealth.db"
 
 DATA_DIR = Path(__file__).resolve().parents[2] / 'data'
 SCHEMA = (DATA_DIR / 'schema' / 'production.sql').read_text()
-INDEX_SCHEMA = (DATA_DIR / 'schema' / 'indexes.sql').read_text()
+SCHEMA, INDEX_SCHEMA = SCHEMA.split('-- Indexes', 1)
 
 
 # Normal ranges used for alerts: (source, metric) -> (low, high).

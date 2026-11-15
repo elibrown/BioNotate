@@ -20,11 +20,9 @@ COPY frontend /app/frontend
 COPY data/astronauts.json data/metrics.json data/predictions.json data/rules.json /app/data/
 # The team's shared database rows, loaded into an empty database on startup.
 COPY data/seed /app/data/seed/
-# Reviewed, versioned research input; imports never overwrite live readings.
-COPY data/research /app/data/research/
-# Database definitions and biomarker metadata are versioned data files.
+# Database definitions and generic metric metadata.
 COPY data/schema /app/data/schema/
-COPY data/biomarkers.json data/demo_vitals.json /app/data/
+COPY data/biomarkers.json /app/data/
 COPY data/ui /app/data/ui/
 
 ENV ASTROHEALTH_DB=/app/storage/astrohealth.db

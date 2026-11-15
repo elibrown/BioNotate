@@ -1,3 +1,2 @@
 # Dataset hashes identify imports. Preserve CSV bytes across developer platforms.
 data/research/*.csv -text whitespace=cr-at-eol
-docs/biologist_docs/*.csv -text whitespace=cr-at-eol

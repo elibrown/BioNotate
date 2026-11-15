@@ -3,35 +3,6 @@
   "measured_at": "2026-11-15T11:16:00.000+00:00",
   "source": "shared_demo",
   "quality_flag": "synthetic_demo_not_a_clinical_measurement",
-  "crew": [
-    {
-      "astronaut_id": "A-01",
-      "hr_bpm": 72,
-      "respi_rate": 14
-    },
-    {
-      "astronaut_id": "A-02",
-      "hr_bpm": 76,
-      "respi_rate": 15
-    },
-    {
-      "astronaut_id": "A-03",
-      "hr_bpm": 82,
-      "respi_rate": 16
-    },
-    {
-      "astronaut_id": "A-04",
-      "hr_bpm": 68,
-      "respi_rate": 14
-    }
-  ],
-  "extra_readings": [
-    {
-      "astronaut_id": "A-02",
-      "metric": "hr_bpm",
-      "value": 105,
-      "unit": "bpm",
-      "measured_at": "2026-11-15T11:17:00.000+00:00"
-    }
-  ]
+  "crew": [{"astronaut_id": "A-01", "hr_bpm": 72, "respi_rate": 14}, {"astronaut_id": "A-02", "hr_bpm": 76, "respi_rate": 15}, {"astronaut_id": "A-03", "hr_bpm": 82, "respi_rate": 16}, {"astronaut_id": "A-04", "hr_bpm": 68, "respi_rate": 14}],
+  "extra_readings": [{"astronaut_id": "A-02", "metric": "hr_bpm", "value": 105, "unit": "bpm", "measured_at": "2026-11-15T11:17:00.000+00:00"}]
 }
