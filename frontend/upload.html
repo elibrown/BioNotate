@@ -20,7 +20,7 @@
   <p class="eyebrow">VIDEO ANALYSIS</p>
   <h1>Upload video</h1>
   <div class="card upload-card">
-    <p>Choose a video with a visible face and press <b>Upload</b>. Cardiorespiratory analysis needs at least 30 seconds of usable footage and returns HR, RR, and PRQ. The result appears below.</p>
+    <p>Choose a video with a visible face and press <b>Upload</b>. Cardiorespiratory analysis needs at least 30 seconds of usable footage (1 minute or more is best; phone videos up to 500 MB, about 3.5 minutes, are fine) and returns HR, RR, and PRQ. The result appears below.</p>
     <label>Astronaut ID (optional)<br><input type="text" id="astronaut_id"></label><br>
     <label for="video">Video file</label>
     <input type="file" id="video" accept="video/*">
@@ -38,24 +38,84 @@
       const file = document.getElementById("video").files[0];
       if (!file) { output.textContent = "Please choose a video first."; return; }
 
-      const form = new FormData();
-      form.append("file", file);
       const astronautId = document.getElementById("astronaut_id").value.trim();
-      if (astronautId) form.append("astronaut_id", astronautId);
 
       button.disabled = true;
-      output.textContent = "Uploading and analysing...";
       try {
-        const response = await fetch("/api/video", { method: "POST", body: form });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || `Upload failed (HTTP ${response.status})`);
-        output.textContent = JSON.stringify(data, null, 2);
+        // 1. Reserve a place on the server.
+        const start = await callApi("/api/video/uploads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, size: file.size, astronaut_id: astronautId || null }),
+        });
+
+        // 2. Send the video in pieces (the server refuses requests over 32 MB).
+        for (let offset = 0; offset < file.size; offset += start.chunk_size) {
+          output.textContent = `Uploading... ${Math.round(offset / file.size * 100)}% `
+            + `(${mb(offset)} of ${mb(file.size)} MB)`;
+          const piece = file.slice(offset, offset + start.chunk_size);
+          await withRetries(() => callApi(`/api/video/uploads/${start.upload_id}?offset=${offset}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: piece,
+          }));
+        }
+
+        // 3. Start the analysis, then keep asking until it is done.
+        output.textContent = "Upload complete. Analysing the video (about 2 minutes per minute of video)...";
+        await callApi(`/api/video/uploads/${start.upload_id}/finish`, { method: "POST" });
+        let job;
+        do {
+          job = await withRetries(() => callApi(`/api/video/jobs/${start.upload_id}?wait=25`));
+          if (job.status === "processing") {
+            output.textContent = `Analysing the video... ${job.elapsed_s} s so far `
+              + "(about 2 minutes per minute of video). Please keep this page open.";
+          }
+        } while (job.status === "processing");
+
+        if (job.status === "error") throw new Error(job.detail);
+        output.textContent = JSON.stringify(job, null, 2);
       } catch (err) {
-        output.textContent = "Something went wrong: " + err;
+        output.textContent = "Something went wrong: " + err.message;
       } finally {
         button.disabled = false;
       }
     });
+
+    function mb(bytes) { return (bytes / 1e6).toFixed(0); }
+
+    // Fetch and return the JSON reply, turning any failure into a readable message.
+    async function callApi(url, options) {
+      let response;
+      try {
+        response = await fetch(url, options);
+      } catch {
+        const err = new Error("Could not reach the server. Check your internet connection and try again.");
+        err.retryable = true;
+        throw err;
+      }
+      const text = await response.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch { /* not JSON, e.g. a proxy error page */ }
+      if (response.ok && data) return data;
+
+      let message = data && data.detail;
+      if (!message && response.status === 413) message = "The file is too large for the server.";
+      if (!message) message = `The server returned an error (HTTP ${response.status}). Please try again.`;
+      const err = new Error(message);
+      err.retryable = response.status >= 500 && response.status !== 501;
+      throw err;
+    }
+
+    // Retry a request a few times if the network or server hiccups.
+    async function withRetries(call) {
+      for (let attempt = 1; ; attempt++) {
+        try { return await call(); } catch (err) {
+          if (!err.retryable || attempt >= 4) throw err;
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        }
+      }
+    }
   </script>
 </body>
 </html>
