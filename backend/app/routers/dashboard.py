@@ -115,12 +115,12 @@ def rising_alerts(member: CrewMember, rising_rules: dict) -> list[dict]:
     return alerts
 
 
-def is_stale(member: CrewMember, evaluation_time: datetime, max_age: int | None) -> bool:
+def is_stale(member: CrewMember, evaluation_time: datetime, stale_after_seconds: int | None) -> bool:
     """Treat a member as stale when any included observation is too old."""
-    if max_age is None:
+    if stale_after_seconds is None:
         return False
     timestamps = [member.observed_at, *(p.observed_at for p in member.predictions)]
-    return any((evaluation_time - timestamp).total_seconds() > max_age
+    return any((evaluation_time - timestamp).total_seconds() > stale_after_seconds
                for timestamp in timestamps)
 
 
@@ -134,13 +134,13 @@ def member_status(member: CrewMember, alerts: list[dict], stale: bool) -> str:
 
 
 def evaluate_member(member: CrewMember, evaluation_time: datetime,
-                    max_age: int, combined_rules: dict | None = None,
+                    stale_after_seconds: int | None, combined_rules: dict | None = None,
                     rising_rules: dict | None = None) -> tuple[dict, list[dict]]:
     """Combine alert rules, freshness, and status for one crew member."""
     alerts = (metric_alerts(member) + prediction_alerts(member)
               + combined_alerts(member, combined_rules or {})
               + rising_alerts(member, rising_rules or {}))
-    stale = is_stale(member, evaluation_time, max_age)
+    stale = is_stale(member, evaluation_time, stale_after_seconds)
     result = {**member.model_dump(), "stale": stale,
               "status": member_status(member, alerts, stale)}
     return result, alerts
@@ -150,12 +150,12 @@ def build_snapshot(repository: CrewRepository, now: datetime) -> dict:
     """Read the source and assemble the dashboard response."""
     members = repository.list_crew()
     evaluation_time = getattr(repository, "evaluation_time", None) or now
-    max_age = getattr(repository, "stale_after_seconds", 300)
+    stale_after_seconds = getattr(repository, "stale_after_seconds", 300)
     combined_rules = getattr(repository, "combined_rules", {})
     rising_rules = getattr(repository, "rising_rules", {})
     crew, alerts = [], []
     for member in members:
-        result, member_alerts = evaluate_member(member, evaluation_time, max_age,
+        result, member_alerts = evaluate_member(member, evaluation_time, stale_after_seconds,
                                                  combined_rules, rising_rules)
         crew.append(result)
         alerts.extend(member_alerts)
