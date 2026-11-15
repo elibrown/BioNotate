@@ -1,258 +1,131 @@
-# astro-health-monitor
+# BioNotate · astro-health-monitor
 
-Astronaut health monitoring and early risk detection platform for NASA Space Apps Challenge 2026.
+**Live site: https://bionotate.web.app** (public, no sign-in)
 
-## System design
+Crew health monitoring and early risk detection for the NASA Space Apps Challenge 2026,
+[Health Monitoring Software](https://www.spaceappschallenge.org/2026/challenges/health-monitoring-software/)
+challenge, by team BioNotate. A crew member records a short face video or a few voice
+clips; the app turns them into vital signs and biomarkers, stores every reading, and
+flags anyone who needs a check.
 
-Production has three tables: `astronauts` (crew), `predictions` (full model outputs),
-and `measurements` (all numeric readings, including the biology CSV). Definitions
-are in `data/schema/production.sql`; there are no separate biology graph tables.
+> Demo only. The readings and alerts are illustrative and not a medical assessment.
 
-### Data insertion
+## What it does
 
-```mermaid
-flowchart LR
-    Manual[Manual entry] --> M[(measurements)]
-    Models[Video / audio models] --> P[(predictions)]
-    Models --> M
-    Snapshot[Shared demo database] --> Merge[Startup merge and deduplication]
-    Merge --> M
-    Merge --> P
-    Merge --> A[(astronauts)]
-```
-
-The reviewed `data/seed/shared_demo.db` contains 4 crew, 10 predictions and 616
-measurements: 387 seed readings, 220 imported biology values and 9 labeled demo
-vitals. Startup remaps conflicting prediction IDs and adds missing measurements;
-it does not overwrite local records. The canonical CSV and demo input are kept
-under `data/research/` and `data/demo_vitals.json`. A-02 has an intentional synthetic
-HR reading of 105 bpm to demonstrate yellow “Check required.”
-
-### Data visualization
-
-```mermaid
-flowchart LR
-    M[(measurements)] --> API[Dashboard and measurement APIs]
-    A[(astronauts)] --> API
-    P[(predictions)] --> API
-    API --> UI[Crew details and metric graphs]
-    API --> Issues[Shared issues list]
-    Issues --> Personal[Personal Status Summary]
-    Issues --> General[General Status Report]
-```
-
-Every metric is plotted once across its sources. Aliases such as `heart_rate` and
-`hr_bpm` are normalized using `data/biomarkers.json`. Missing/stale readings and
-configured threshold/trend alerts appear in both status reports.
-
-### Trend calculation
-
-```mermaid
-flowchart LR
-    Query[Crew and metric] --> Read[Read measurements]
-    Read --> Group[Group compatible units and time axes]
-    Group --> Sort[Order readings]
-    Sort --> Summary[First / latest / min / max / net change]
-    Sort --> Plot[Equally spaced observation points]
-```
-
-`GET /api/measurements/trends?astronaut_id=A-01` uses `app/data/trends.py`.
-Graphs use equal observation spacing and UTC `YYYYMMDD HH:mm:ss` labels/tooltips.
-Mission-phase readings keep their phase labels instead of invented dates; the
-same metric panel can switch between recorded time and mission phases.
-
-The SQLite snapshot is tracked in Git and copied into Docker. Pull this branch
-and rebuild/restart Docker to load the same baseline. Runtime uploads stay in the
-working database volume. The snapshot is reference data, not live synchronization.
-
-## Run with Docker
-
-From the repository root with Docker running:
-
-```bash
-# Development: Python reload, mounted frontend and demo data
-docker compose -f compose.yaml -f compose.dev.yaml up --build
-
-# Production: source and demo files baked into the image, no reload
-docker compose up --build -d
-```
-
-Open http://localhost:8000/ for the dashboard, `/upload` for video upload, or `/docs` for the API. No separate frontend server or build is needed. In development, Python changes reload automatically; refresh the browser after HTML/CSS/JS edits. Demo JSON changes appear on the next dashboard fetch (every 15 seconds). Rebuild after dependency changes; production requires rebuilding for all source/data changes.
-
-Use one mode at a time. Stop development with Ctrl+C; run `docker compose down` to remove containers. Uploads and the working database persist in named volumes; `down -v` deletes them. View logs with `docker compose logs -f app`. The image runs as a non-root user with a `/api/health` health check.
-
-If port 8000 is occupied, prefix the command with `APP_PORT=8001` and open http://localhost:8001/. PowerShell: set `$env:APP_PORT = "8001"` first. Inspect configuration with `docker compose config` (include both `-f` flags for development).
-
-## Run without Docker
-
-Python 3.11+ is required. From the repository root:
-
-```bash
-cd backend
-python -m venv .venv
-# Linux/macOS: source .venv/bin/activate
-# Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-Open http://127.0.0.1:8000/. This starts both the API and UI. From `backend/`, install pytest with `python -m pip install pytest`, then run `python -m pytest -v` for all tests.
-
-## Demo data and status rules
-
-`data/astronauts.json` contains profiles, `metrics.json` contains timestamped readings/history, and `predictions.json` contains synthetic model scores. Records join by astronaut ID. Files reload on each API request; `rules.json` configures inclusive metric ranges, prediction thresholds, and freshness duration.
-
-- **Needs attention:** a metric is outside its range or a prediction meets/exceeds its threshold.
-- **Unknown:** no alert, but required metrics are missing or observations are stale.
-- **Healthy:** required metrics are fresh/present and no rule triggers. These are illustrative demo rules, not a clinical assessment.
-
-The demo clock is the latest fixture timestamp. Member details show trends, predictions, and alert reasons. Alerts are calculated on request; saved alert history and external notifications remain future work. Astronaut IDs are provided by demo records or entered manually on upload; automatic identity recognition is not implemented.
-
-## Dashboard class relationships
-
-```mermaid
-classDiagram
-    class CrewRepository {
-        <<interface>>
-        list_crew()
-    }
-    CrewRepository <|.. DemoCrewRepository
-    CrewRepository --> CrewMember : returns
-    CrewMember "1" *-- "0..*" Metric
-    CrewMember "1" *-- "0..*" Prediction
-```
-
-## Prediction storage (SQLite)
-
-Everything is stored in one SQLite file, `backend/astrohealth.db` (created on
-first use, not committed to git; set `ASTROHEALTH_DB` to use another path).
-Database access is in `backend/app/db.py`; SQL definitions are in `data/schema/production.sql`. There are three tables:
-
-- **astronauts**: crew IDs, names and roles.
-
-- **predictions**: one row per model run (e.g. one uploaded video). It keeps
-  the model's full output as JSON, its `model`, `status`, and whether it is an
-  alert. This is what the UI shows as status and alerts.
-- **measurements**: every reading, for charts and trend analysis. Each row is
-  one value: astronaut, `source`, `metric`, value, unit, time. Each model has
-  its own metrics, so `source` is the model name (e.g. `cardioresp`) and
-  `metric` is its field (e.g. `hr_bpm`). Values entered by hand, e.g. a lab
-  result, have `source = "manual"` and no `prediction_id`.
-
-After each model run, `backend/app/extractors.py` picks the readings out of the
-model output. For `cardioresp` it saves every reading with status `ok` or
-`partial`: `hr_bpm`, `respi_rate` and `prq` (a 60 s video gives about 30
-readings x 3 metrics). `warming_up` and `no_face` readings have no values and
-are skipped. A reading's time is the upload time plus its `timestamp_s`
-(stored as `offset_s`); approximate, since we don't know when the video was
-recorded. A new model needs one small function in that file.
-
-A prediction is an alert if the model returns `"alert": true`, or if the
-**median** of a metric's readings in that video is outside its range in
-`ALERT_RANGES` (`backend/app/db.py`). The median, so one noisy reading doesn't
-raise an alert. Today the only range is cardioresp heart rate 40-120 bpm, a
-placeholder until someone sets real limits. Respiratory rate has no range
-because cardioresp's RR is not validated. The model `status` describes video
-quality, not health, so it never triggers an alert; it is still saved so the
-UI can say "retake the video".
-
-| Endpoint | What it returns |
+| Page | What it does |
 | --- | --- |
-| `GET /api/predictions?astronaut_id=A-07&limit=50` | Model runs, newest first (omit `astronaut_id` for everyone) |
-| `GET /api/predictions/{id}` | One model run, with its full output |
-| `GET /api/alerts` | Alerts nobody has handled, newest first (`?astronaut_id=`, `?include_acknowledged=true`) |
-| `POST /api/alerts/{id}/ack` | Marks an alert as handled |
-| `GET /api/measurements?astronaut_id=A-07&source=cardioresp&metric=hr_bpm&since=2026-11-01` | Readings oldest first, ready for a chart (all filters optional, plus `prediction_id` for one video, `until`, `limit`) |
-| `POST /api/measurements` | Add one value by hand (JSON: `astronaut_id`, `metric`, `value`, optional `unit`, `measured_at`, `source` (default `manual`)) |
+| `/` Crew dashboard | The four Artemis II astronauts as demo crew: status per member, latest vitals, trend graphs, and a Status Report of open issues. Refreshes every 15 s. |
+| `/upload` Video analysis | Estimates heart rate, respiratory rate and PRQ from a face video (vendored `cardioresp` model, about one reading every 2 s). |
+| `/audio` Voice recording | Five short clips (counting normal and fast, vowels a/e/o) go through the vendored `voicebiomarker` model and give a vocal biomarker z-score (research only). |
+| `/measurements` Manual entry | Save one blood pressure, glucose or temperature reading at a time. |
+| `/mada` Emergency support | Emergency-assessment assistant (see below). Shows "Assistant offline" when no model server is configured, which is the case on the live site. |
+| `/docs` | Interactive API documentation. |
 
-A measurement looks like:
+**Status colours** (rules in `data/rules.json`):
 
-```json
-{"id": 1, "astronaut_id": "A-07", "source": "cardioresp", "metric": "hr_bpm",
- "value": 71.8, "unit": "bpm", "measured_at": "2026-11-14T12:20:01.000+00:00",
- "offset_s": 30.0, "prediction_id": 1}
+- **Green:** within range.
+- **Yellow, "Check required":** a vital sign is out of range (heart rate 50-100 bpm, respiratory rate 12-20 br/min), or readings are missing.
+- **Red, "Needs attention":** any other alert, such as a model score over its threshold or the vocal biomarker rising four checks in a row.
+
+**Long videos.** Videos up to 500 MB are uploaded in 8 MB pieces and analysed in the
+background; the page waits for the result in short requests. This keeps every request
+under Cloud Run's 32 MB body limit and Firebase Hosting's 60 s timeout. On the live site
+the video is deleted after analysis.
+
+### Emergency assistant (MADA)
+
+`/mada` links an emergency report (text, image or audio) to a crew member, asks
+follow-up checks, and returns protocol steps alongside the member's history and trends.
+The model runs as a separate GPU service (`services/mada/`) and is off by default. Turn it
+on with two backend environment variables:
+
+- `MADA_SERVICE_URL`: address of the MADA model server, e.g. `http://127.0.0.1:8010`
+- `MADA_DEMO_ENABLED=1`
+
+Do not enable it on the public deployment: the app has no user sign-in yet. Setup and
+limitations are in [`docs/MADA_INTEGRATION.md`](docs/MADA_INTEGRATION.md).
+
+## Run locally (Windows)
+
+Needs Python 3.11 or newer (we use 3.12). Run from `backend\`, because
+`requirements.txt` installs the model wheels from `backend\vendor\` by relative path.
+
+```powershell
+cd backend
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-`POST /api/video` now also returns `prediction_id`, `created_at`, `is_alert`
-and the `measurements` it saved.
+Open http://127.0.0.1:8000/. The same server serves the API and the pages; there is no
+separate frontend build. On macOS/Linux use `python3 -m venv .venv` and `.venv/bin/python`.
 
-Tests: from `backend/`, run `python -m pytest -q`.
+Tests, from `backend\`:
 
-**Shared data.** Startup merges the reviewed `data/seed/shared_demo.db` baseline.
-Repeat imports add no duplicates, and existing local records are preserved.
-The JSON seed remains a fallback for databases without a packaged snapshot.
-Do not delete a working database to apply an updated baseline.
+```powershell
+.\.venv\Scripts\python.exe -m pip install pytest
+.\.venv\Scripts\python.exe -m pytest -q
+```
 
-The dashboard (`GET /api/dashboard`) reads this database through
-`DatabaseCrewRepository` in `backend/app/dashboard/repository.py`. `DB_METRICS`
-there maps each dashboard metric in `data/rules.json` to a stored
-`(source, metric)`; heart and respiratory rates use the latest timestamped live reading across sources; research-phase values are excluded.
-Rule metrics with no mapping (e.g. `oxygen`) are not shown, and risk-score
-predictions stay empty until a model produces scores. Note the dashboard's
-alerts use the ranges in `data/rules.json`, separate from `ALERT_RANGES` above.
+### With Docker
 
-## Repository structure
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up --build   # development, auto-reload
+docker compose up --build -d                                    # production image
+```
+
+Open http://localhost:8000/. Set `APP_PORT=8001` if port 8000 is taken. Uploads and the
+working database persist in named volumes (`docker compose down -v` deletes them).
+
+## Data
+
+Everything is stored in one SQLite file, `backend/astrohealth.db` (git-ignored; set
+`ASTROHEALTH_DB` for another path). Schema: `data/schema/production.sql`.
+
+- **astronauts:** crew IDs, names and roles.
+- **predictions:** one row per model run (video, voice clips), with the full model output and whether it is an alert.
+- **measurements:** every numeric reading (model output, manual entries, imported biology values), used for graphs and trends.
+
+**Demo data.** On startup the app merges the reviewed snapshot `data/seed/shared_demo.db`
+into the working database. Repeat merges add no duplicates and never overwrite local
+records. A database with no data at all is also loaded from `data/seed/astrohealth_seed.json`.
+
+**Sharing your data with the team.** Export your local database to the JSON seed, then
+commit the file:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.seed export
+```
+
+Each row is one line, so new rows show up clearly in `git diff`.
+
+## Deploy
+
+Every push to `main` deploys automatically: GitHub Actions
+(`.github/workflows/deploy.yml`) builds the `Dockerfile` on Google Cloud Run (project
+`bionotate`, `us-central1`), and Firebase Hosting serves it at https://bionotate.web.app.
+GitHub signs in to Google with Workload Identity Federation, so no keys are stored in the
+repo. Cloud Run keeps the database in `/tmp`, so data added on the live site resets when
+the instance restarts; the demo snapshot is reloaded on each start.
+
+## Repository layout
 
 ```text
-astro-health-monitor/
-├── README.md                       # Setup, architecture, and demo behavior
-├── Dockerfile                      # Production image, including cardioresp package
-├── .dockerignore                   # Exclude local/private files from builds
-├── compose.yaml                    # Production configuration and uploads volume
-├── compose.dev.yaml                # Development source mounts and reload
-├── backend/
-│   ├── requirements.txt
-│   ├── vendor/                     # Vendored cardioresp wheel
-│   ├── app/
-│   │   ├── main.py                 # FastAPI setup, pages, and static assets
-│   │   ├── db.py                   # SQLite storage: predictions, measurements, alert rule
-│   │   ├── extractors.py           # Model output -> measurement rows, per model
-│   │   ├── dashboard/
-│   │   │   └── repository.py       # Demo data models/reader; database handoff
-│   │   ├── routers/
-│   │   │   ├── dashboard.py        # Snapshot API and status/alert functions
-│   │   │   ├── predictions.py      # Prediction history and alerts API
-│   │   │   ├── measurements.py     # Measurements API (trends, manual entry)
-│   │   │   └── video.py            # Video upload and analysis endpoint
-│   │   ├── models/
-│   │   │   └── video_model.py      # HR/RR/PRQ model adapter
-│   │   └── processing/
-│   │       ├── factory.py          # Select video/audio/metrics strategy
-│   │       └── strategies.py       # Current pass-through processors
-│   ├── tests/
-│   │   ├── test_dashboard.py
-│   │   ├── test_processing.py
-│   │   └── test_video_model.py
-│   └── uploads/                    # Runtime videos, ignored by Git
-├── frontend/
-│   ├── index.html                  # Crew dashboard and detail dialog
-│   ├── dashboard.css               # Shared theme, sidebar, responsive layouts
-│   ├── dashboard.js                # Polling, rendering, filters, member details
-│   └── upload.html                 # Video form and analysis results
-├── data/
-│   ├── astronauts.json
-│   ├── metrics.json
-│   ├── predictions.json
-│   └── rules.json
-└── docs/diagrams/
-    ├── dashboard-design.svg        # Dashboard read flow
-    └── system-design.svg           # Target upload/prediction flow
+backend/app/        FastAPI app: main.py (pages), routers/ (API), models/ (video and voice adapters),
+                    db.py (SQLite), extractors.py (model output -> measurements), seed.py
+backend/vendor/     cardioresp and voicebiomarker wheels
+backend/tests/      unit and end-to-end tests
+frontend/           HTML/CSS/JS for every page
+data/               rules.json (alert ranges), biomarkers.json, seed/, schema/, ui/ (crew photos, icons)
+services/mada/      MADA emergency model service (GPU, run separately)
+docs/               MADA integration notes and diagrams
 ```
 
-Python package markers and empty-directory placeholders are omitted from the tree. Next decisions: model/preprocessing contracts, ingestion limits and retention, synchronous versus asynchronous prediction, and database persistence/retry behavior.
+## Credits
 
-## Manual measurements
-
-Use **Manual measurements** in the sidebar to save one systolic/diastolic pressure, glucose, or temperature reading at a time. Saved values appear in member details; no manual alert rules are applied.
-
-## Model 3 — MADA emergency-assessment agent (prototype)
-
-An additional `/mada` UI provides a patient-linked emergency-assessment flow,
-including text/image/audio input, follow-up Checks, exact protocol steps,
-patient history and a descriptive trend report computed from stored health
-measurements. MADA itself runs as a **separate GPU-backed service**, included
-under `services/mada/`. It is **not** shipped with the existing Cloud Run CPU
-backend and **not** enabled on the public deployment by default.
-
-Read [`docs/MADA_INTEGRATION.md`](docs/MADA_INTEGRATION.md) for the API contract,
-local PowerShell setup, and critical access-control/database durability blockers.
+The demo crew are the Artemis II astronauts Reid Wiseman, Victor Glover, Christina Koch
+and Jeremy Hansen. Their photos are NASA photographs, in the public domain in the United
+States, taken from Wikimedia Commons (sources in
+[`data/ui/crew/CREDITS.md`](data/ui/crew/CREDITS.md)). Their health readings are demo
+data, and NASA does not endorse this project.
