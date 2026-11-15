@@ -22,3 +22,8 @@ data/*
 !data/rules.json
 !data/seed
 !data/ui
+!data/research
+!data/schema
+!data/biomarkers.json
+
+!data/demo_vitals.json

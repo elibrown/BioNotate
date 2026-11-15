@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="570" viewBox="0 0 1120 570" role="img" aria-labelledby="title desc">
+<title id="title">3. Trend calculation</title><desc id="desc">Descriptive change for each homogeneous series; this is not medical/model inference. One point: insufficient data for change. A zero first value: percent change is NULL. Net direction compares first to latest; it does not claim every intermediate point increased. Clinical thresholds and the dashboard rising-rule checks are separate calculations.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#475569"/></marker></defs>
+<rect width="1120" height="570" rx="16" fill="#f8fafc"/>
+<g font-family="Arial, sans-serif" fill="#0f172a">
+<text x="30" y="40" font-size="24" font-weight="bold">3. Trend calculation</text>
+<text x="30" y="70" font-size="15" fill="#475569">Descriptive change for each homogeneous series; this is not medical/model inference.</text>
+<line x1="320" y1="165" x2="420" y2="165" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="720" y1="165" x2="820" y2="165" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="955" y1="220" x2="720" y2="345" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="420" y1="375" x2="320" y2="375" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="30" y="115" width="290" height="105" rx="10" fill="#dcfce7" stroke="#94a3b8"/>
+<text x="45" y="142" font-size="17" font-weight="bold">Select stored observations</text>
+<text x="45" y="167" font-size="14">Crew + optional metric/source/context</text>
+<text x="45" y="188" font-size="14">Read production.measurements</text>
+<rect x="420" y="115" width="300" height="105" rx="10" fill="#e0e7ff" stroke="#94a3b8"/>
+<text x="435" y="142" font-size="17" font-weight="bold">Keep compatible values together</text>
+<text x="435" y="167" font-size="14">Group metric, unit, source, context</text>
+<text x="435" y="188" font-size="14">Also separate dataset and time axis</text>
+<rect x="820" y="115" width="270" height="105" rx="10" fill="#e0e7ff" stroke="#94a3b8"/>
+<text x="835" y="142" font-size="17" font-weight="bold">Order the points</text>
+<text x="835" y="167" font-size="14">Actual timestamps OR mission phase</text>
+<text x="835" y="188" font-size="14">Never mix the two axes</text>
+<rect x="420" y="310" width="300" height="130" rx="10" fill="#e0e7ff" stroke="#94a3b8"/>
+<text x="435" y="337" font-size="17" font-weight="bold">Calculate each series summary</text>
+<text x="435" y="362" font-size="14">First / latest / min / max / count</text>
+<text x="435" y="383" font-size="14">Net change = latest − first</text>
+<text x="435" y="404" font-size="14">Percent = change / |first| × 100</text>
+<rect x="30" y="325" width="290" height="105" rx="10" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="45" y="352" font-size="17" font-weight="bold">Return one API response</text>
+<text x="45" y="377" font-size="14">Ordered points + descriptive summary</text>
+<text x="45" y="398" font-size="14">No source-specific graph database</text>
+<rect x="820" y="310" width="270" height="130" rx="10" fill="#fef3c7" stroke="#94a3b8"/>
+<text x="835" y="337" font-size="17" font-weight="bold">Example: one HR series</text>
+<text x="835" y="362" font-size="14">70 → 80 → 75 bpm</text>
+<text x="835" y="383" font-size="14">Net change: +5 bpm (+7.14%)</text>
+<text x="835" y="404" font-size="14">Net direction: rising</text>
+<text x="30" y="490" font-size="14" fill="#475569">One point: insufficient data for change. A zero first value: percent change is NULL.</text>
+<text x="30" y="515" font-size="14" fill="#475569">Net direction compares first to latest; it does not claim every intermediate point increased.</text>
+<text x="30" y="540" font-size="14" fill="#475569">Clinical thresholds and the dashboard rising-rule checks are separate calculations.</text>
+</g></svg>

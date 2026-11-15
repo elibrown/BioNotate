@@ -11,8 +11,8 @@ RUN python -m pip install -r requirements.txt
 
 RUN groupadd --gid 10001 astro \
     && useradd --uid 10001 --gid astro --create-home astro \
-    && mkdir -p /app/backend/uploads \
-    && chown astro:astro /app/backend/uploads
+    && mkdir -p /app/backend/uploads /app/storage \
+    && chown astro:astro /app/backend/uploads /app/storage
 
 COPY backend/app ./app
 COPY frontend /app/frontend
@@ -20,7 +20,14 @@ COPY frontend /app/frontend
 COPY data/astronauts.json data/metrics.json data/predictions.json data/rules.json /app/data/
 # The team's shared database rows, loaded into an empty database on startup.
 COPY data/seed /app/data/seed/
+# Reviewed, versioned research input; imports never overwrite live readings.
+COPY data/research /app/data/research/
+# Database definitions and biomarker metadata are versioned data files.
+COPY data/schema /app/data/schema/
+COPY data/biomarkers.json data/demo_vitals.json /app/data/
 COPY data/ui /app/data/ui/
+
+ENV ASTROHEALTH_DB=/app/storage/astrohealth.db
 
 USER astro
 EXPOSE 8000

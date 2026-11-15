@@ -264,3 +264,13 @@ body{padding-left:74px}
 .identity-panel.warning{background:linear-gradient(#fff6dc,#fff);border-color:#f2d27a}
 .bionotate .alert-row.alert{background:#fbe1e1}.bionotate .alert-row.alert .icon{color:#ef3b3b}
 .bionotate .alert-row.warning{background:#fdf0da}.bionotate .alert-row.warning .icon{color:#f4c21b}
+
+/* All measurement charts use the existing vital-trend layout. */
+.stored-metric{min-width:0;overflow-wrap:anywhere}
+.stored-metric-chart{width:100%;height:auto;display:block}
+.stored-metric table{width:100%;font-size:14px;border-collapse:collapse}
+.stored-metric td,.stored-metric th{text-align:left;padding:8px;border-bottom:1px solid #b5cff1}
+.stored-metric summary{cursor:pointer;color:#0472d3;font-size:14px;margin:10px 0}
+.chart-time-bounds{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;color:#334e7c;font-variant-numeric:tabular-nums}
+.metric-axis-label{display:block;font-size:13px;color:#485d80;margin-top:10px}
+.metric-axis-label select{display:block;margin:6px 0 0;max-width:100%;font-size:13px;padding:6px}

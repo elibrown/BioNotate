@@ -124,6 +124,25 @@ def is_stale(member: CrewMember, evaluation_time: datetime, stale_after_seconds:
                for timestamp in timestamps)
 
 
+def data_quality_issues(member: CrewMember, evaluation_time: datetime, stale: bool) -> list[dict]:
+    """Explain every missing/stale state in the same report as threshold alerts."""
+    issues = []
+    missing = [m for m in member.metrics if m.value is None]
+    messages = [(m.key, f'{m.label}: no current reading recorded.') for m in missing]
+    if not member.metrics:
+        messages.append(('measurements', 'No monitored measurements recorded.'))
+    for key, message in messages:
+        issues.append({'id': f'{member.id}:missing:{key}', 'crew_id': member.id,
+            'crew_name': member.name, 'metric': key, 'message': message,
+            'severity': 'warning', 'kind': 'missing', 'observed_at': evaluation_time})
+    if stale:
+        issues.append({'id': f'{member.id}:stale', 'crew_id': member.id,
+            'crew_name': member.name, 'metric': 'freshness',
+            'message': 'Stored observations are out of date; fresh readings are required.',
+            'severity': 'warning', 'kind': 'stale', 'observed_at': member.observed_at})
+    return issues
+
+
 def member_status(member: CrewMember, alerts: list[dict], stale: bool) -> str:
     """Alerts take priority over missing or stale data."""
     if alerts:
@@ -141,9 +160,14 @@ def evaluate_member(member: CrewMember, evaluation_time: datetime,
               + combined_alerts(member, combined_rules or {})
               + rising_alerts(member, rising_rules or {}))
     stale = is_stale(member, evaluation_time, stale_after_seconds)
-    result = {**member.model_dump(), "stale": stale,
-              "status": member_status(member, alerts, stale)}
-    return result, alerts
+    status = member_status(member, alerts, stale)
+    metric_keys = {metric.key for metric in member.metrics}
+    for alert in alerts:
+        alert['severity'] = 'warning' if alert['metric'] in metric_keys else 'alert'
+        alert['kind'] = 'threshold_or_trend'
+    issues = alerts + data_quality_issues(member, evaluation_time, stale)
+    result = {**member.model_dump(), 'stale': stale, 'status': status, 'issues': issues}
+    return result, issues
 
 
 def build_snapshot(repository: CrewRepository, now: datetime) -> dict:

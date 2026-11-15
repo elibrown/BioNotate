@@ -14,7 +14,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import db, seed
+from app import db
+from app.data import management as seed
 from app.main import app
 
 
@@ -86,8 +87,8 @@ class SeedTest(unittest.TestCase):
         with self.use_db("source.db"):
             self.fill_source_db()
             seed.export_seed(self.seed_file)
-        with self.use_db("fresh.db"), patch.object(seed, "SEED_FILE", self.seed_file), \
-             patch("app.seed.load_seed_if_empty.__defaults__", (self.seed_file,)):
+        with self.use_db("fresh.db"), patch.object(seed, "SNAPSHOT_FILE", self.dir / "absent.db"), patch.object(seed, "SEED_FILE", self.seed_file), \
+             patch("app.data.management.load_seed_if_empty.__defaults__", (self.seed_file,)):
             with TestClient(app) as client:   # "with" runs the startup code
                 predictions = client.get("/api/predictions").json()
             self.assertEqual(len(predictions), 1)

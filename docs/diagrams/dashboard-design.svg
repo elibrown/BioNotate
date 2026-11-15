@@ -1,42 +1,44 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="540" viewBox="0 0 1120 540" role="img" aria-labelledby="title desc">
-<title id="title">Dashboard system design</title>
-<desc id="desc">The dashboard UI polls the Dashboard API every 15 seconds. The API uses the crew repository to read demo astronauts, metrics, predictions and rules, then evaluates status and alerts. A database adapter for users, metrics and predictions is planned. Solid arrows show existing calls; dashed arrows show planned database integration.</desc>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#475569"/></marker></defs>
-<rect width="1120" height="540" rx="16" fill="#f8fafc"/>
-<g font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#334155">
-<text x="560" y="40" font-size="24" font-weight="bold" fill="#0f172a">Dashboard · read data → evaluate rules → display crew status</text>
-<text x="560" y="69" font-size="14">Current implementation: one FastAPI server serves the UI and API</text>
-<rect x="30" y="130" width="290" height="125" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
-<text x="175" y="162" font-size="19" font-weight="bold">Dashboard UI /</text>
-<text x="175" y="189" font-size="14">Crew cards · details · trends</text>
-<text x="175" y="212" font-size="14">Status and member alerts</text>
-<text x="175" y="235" font-size="14">dashboard.js polls every 15s</text>
-<rect x="415" y="130" width="290" height="125" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-<text x="560" y="162" font-size="19" font-weight="bold">Dashboard API</text>
-<text x="560" y="189" font-size="14">GET /api/dashboard</text>
-<text x="560" y="212" font-size="14">Evaluate ranges, scores, freshness</text>
-<text x="560" y="235" font-size="14">Return crew snapshot + alerts</text>
-<rect x="800" y="130" width="290" height="125" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-<text x="945" y="162" font-size="19" font-weight="bold">Crew data access</text>
-<text x="945" y="189" font-size="14">CrewRepository.list_crew()</text>
-<text x="945" y="212" font-size="14">Current: DemoCrewRepository</text>
-<text x="945" y="235" font-size="14">Future: database implementation</text>
-<rect x="415" y="335" width="290" height="125" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
-<text x="560" y="367" font-size="19" font-weight="bold">Demo JSON files</text>
-<text x="560" y="394" font-size="14">astronauts.json · metrics.json</text>
-<text x="560" y="417" font-size="14">predictions.json · rules.json</text>
-<text x="560" y="440" font-size="14">Join records by astronaut ID</text>
-<rect x="800" y="335" width="290" height="125" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="7 5"/>
-<text x="945" y="367" font-size="19" font-weight="bold">Database · planned</text>
-<text x="945" y="394" font-size="14">users · metrics · predictions</text>
-<text x="945" y="417" font-size="14">Adapter handoff: TODO(@itamar)</text>
-<text x="945" y="440" font-size="14">Tables / schema handled by Itamar</text>
-<path d="M320 193H415" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-<text x="367" y="115" font-size="12">Request / response</text>
-<path d="M705 193H800" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-<text x="752" y="115" font-size="12">Read crew</text>
-<path d="M870 255V295H560V335" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-<text x="670" y="285" font-size="12">Read demo files</text>
-<path d="M1010 255V335" fill="none" stroke="#475569" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)" stroke-dasharray="7 5"/>
-<text x="1055" y="301" font-size="12">Future read</text>
-<text x="560" y="511" font-size="14">Solid: implemented calls · dashed: planned integration · uploaded video results are not connected yet</text></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="570" viewBox="0 0 1120 570" role="img" aria-labelledby="title desc">
+<title id="title">2. Data visualization</title><desc id="desc">All stored metric values come from production.measurements, whatever their source. Existing biology graph endpoint is a compatibility adapter that now reads measurements. The generic trends API is ready; arbitrary-metric UI wiring is separate from this backend refactor. Browser code receives API data; it never opens SQLite or reads CSV files directly.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#475569"/></marker></defs>
+<rect width="1120" height="570" rx="16" fill="#f8fafc"/>
+<g font-family="Arial, sans-serif" fill="#0f172a">
+<text x="30" y="40" font-size="24" font-weight="bold">2. Data visualization</text>
+<text x="30" y="70" font-size="15" fill="#475569">All stored metric values come from production.measurements, whatever their source.</text>
+<line x1="320" y1="160" x2="430" y2="160" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="320" y1="280" x2="430" y2="205" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="320" y1="410" x2="430" y2="205" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="320" y1="290" x2="430" y2="350" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="730" y1="165" x2="835" y2="165" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="730" y1="350" x2="835" y2="350" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="30" y="115" width="290" height="90" rx="10" fill="#dcfce7" stroke="#94a3b8"/>
+<text x="45" y="142" font-size="17" font-weight="bold">astronauts</text>
+<text x="45" y="167" font-size="14">Crew ID, name and role</text>
+<rect x="30" y="245" width="290" height="90" rx="10" fill="#dcfce7" stroke="#94a3b8"/>
+<text x="45" y="272" font-size="17" font-weight="bold">measurements</text>
+<text x="45" y="297" font-size="14">Manual + model + biology values</text>
+<rect x="30" y="375" width="290" height="80" rx="10" fill="#dcfce7" stroke="#94a3b8"/>
+<text x="45" y="402" font-size="17" font-weight="bold">predictions</text>
+<text x="45" y="427" font-size="14">Saved full inference outputs</text>
+<rect x="430" y="115" width="300" height="110" rx="10" fill="#e0e7ff" stroke="#94a3b8"/>
+<text x="445" y="142" font-size="17" font-weight="bold">Dashboard repository</text>
+<text x="445" y="167" font-size="14">Load crew and configured live values</text>
+<text x="445" y="188" font-size="14">Evaluate configured alert rules</text>
+<text x="445" y="209" font-size="14">GET /api/dashboard</text>
+<rect x="430" y="290" width="300" height="125" rx="10" fill="#e0e7ff" stroke="#94a3b8"/>
+<text x="445" y="317" font-size="17" font-weight="bold">Measurement trend service</text>
+<text x="445" y="342" font-size="14">Filter crew / metric / source</text>
+<text x="445" y="363" font-size="14">Read production measurements</text>
+<text x="445" y="384" font-size="14">GET /api/measurements/trends</text>
+<rect x="835" y="115" width="255" height="110" rx="10" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="850" y="142" font-size="17" font-weight="bold">Dashboard / crew detail</text>
+<text x="850" y="167" font-size="14">Existing UI displays API data</text>
+<text x="850" y="188" font-size="14">Database values → visible readings</text>
+<rect x="835" y="310" width="255" height="105" rx="10" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="850" y="337" font-size="17" font-weight="bold">Trend points + summary</text>
+<text x="850" y="362" font-size="14">Separate series by source/time axis</text>
+<text x="850" y="383" font-size="14">Any stored metric can be queried</text>
+<text x="30" y="490" font-size="14" fill="#475569">Existing biology graph endpoint is a compatibility adapter that now reads measurements.</text>
+<text x="30" y="515" font-size="14" fill="#475569">The generic trends API is ready; arbitrary-metric UI wiring is separate from this backend refactor.</text>
+<text x="30" y="540" font-size="14" fill="#475569">Browser code receives API data; it never opens SQLite or reads CSV files directly.</text>
+</g></svg>

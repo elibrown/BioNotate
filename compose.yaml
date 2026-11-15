@@ -5,10 +5,15 @@ services:
       dockerfile: Dockerfile
     ports:
       - "${APP_PORT:-8000}:8000"
+    environment:
+      ASTROHEALTH_DB: /app/storage/astrohealth.db
+      ASTROHEALTH_IMPORT_BIOLOGY: "${ASTROHEALTH_IMPORT_BIOLOGY:-true}"
     volumes:
       - uploads:/app/backend/uploads
+      - database:/app/storage
     restart: unless-stopped
     init: true
 
 volumes:
+  database:
   uploads:

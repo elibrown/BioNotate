@@ -67,6 +67,11 @@ class ExtractorTests(unittest.TestCase):
         self.assertEqual(extract_measurements(voice_output(None, "rejected", "low_snr")), [])
 
 
+def model_alerts(snapshot):
+    # Missing-vital warnings share the status report but are not voice-model alerts.
+    return [a for a in snapshot['alerts'] if a.get('kind') == 'threshold_or_trend']
+
+
 class VoicePipelineTests(unittest.TestCase):
     def setUp(self):
         self.tmp = TemporaryDirectory()
@@ -140,7 +145,7 @@ class VoicePipelineTests(unittest.TestCase):
         self.assertEqual(prediction["score"], 0.23)
         self.assertEqual(prediction["unit"], "z-score")
         self.assertEqual(prediction["model_version"], "coswara-cm-0.1.0")
-        self.assertEqual(snapshot["alerts"], [])
+        self.assertEqual(model_alerts(snapshot), [])
 
     def test_rejected_recording_is_saved_with_advice_but_no_measurements(self):
         output = {**voice_output(None, "rejected", "low_snr"), "advice": "Find a quieter place."}
@@ -153,32 +158,32 @@ class VoicePipelineTests(unittest.TestCase):
     def test_no_alert_for_a_high_score_alone(self):
         self.upload_audio("A-01", voice_output(3.5))   # no fixed numbers any more
         snapshot, crew = self.dashboard()
-        self.assertEqual(snapshot["alerts"], [])
+        self.assertEqual(model_alerts(snapshot), [])
         self.assertIsNone(crew["A-01"]["predictions"][0]["threshold"])
 
     def test_four_rising_checks_alert(self):
         for score in (0.75, 1.2, 2.01):
             self.upload_audio("A-01", voice_output(score))
         snapshot, _ = self.dashboard()
-        self.assertEqual(snapshot["alerts"], [])          # only 3 checks so far
+        self.assertEqual(model_alerts(snapshot), [])          # only 3 checks so far
 
         self.upload_audio("A-01", voice_output(2.34))     # 4th check, still rising
         snapshot, crew = self.dashboard()
         self.assertEqual(crew["A-01"]["status"], "alert")
-        self.assertEqual([a["metric"] for a in snapshot["alerts"]], ["vocal_biomarker_rising"])
-        self.assertIn("0.75 → 1.2 → 2.01 → 2.34", snapshot["alerts"][0]["message"])
+        self.assertEqual([a["metric"] for a in model_alerts(snapshot)], ["vocal_biomarker_rising"])
+        self.assertIn("0.75 → 1.2 → 2.01 → 2.34", model_alerts(snapshot)[0]["message"])
 
     def test_a_drop_breaks_the_trend(self):
         for score in (0.75, 1.2, 1.0, 2.01, 2.34):   # last 4: 1.2, 1.0, 2.01, 2.34
             self.upload_audio("A-01", voice_output(score))
         snapshot, _ = self.dashboard()
-        self.assertEqual(snapshot["alerts"], [])
+        self.assertEqual(model_alerts(snapshot), [])
 
     def test_trend_is_per_astronaut(self):
         for astronaut, score in [("A-01", 1), ("A-02", 2), ("A-01", 3), ("A-02", 4)]:
             self.upload_audio(astronaut, voice_output(score))
         snapshot, _ = self.dashboard()
-        self.assertEqual(snapshot["alerts"], [])          # 2 checks each
+        self.assertEqual(model_alerts(snapshot), [])          # 2 checks each
 
     def test_real_model_on_sample_recording(self):
         r = self.post_clips("A-03", clips=sample_day(1))
@@ -198,7 +203,7 @@ class VoicePipelineTests(unittest.TestCase):
         self.assertEqual(scores, sorted(scores))          # each day higher
         snapshot, crew = self.dashboard()
         self.assertEqual(crew["A-03"]["status"], "alert")
-        self.assertEqual([a["metric"] for a in snapshot["alerts"]], ["vocal_biomarker_rising"])
+        self.assertEqual([a["metric"] for a in model_alerts(snapshot)], ["vocal_biomarker_rising"])
 
 if __name__ == "__main__":
     unittest.main()

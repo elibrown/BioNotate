@@ -6,18 +6,18 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import seed
-from app.routers import audio, dashboard, measurements, predictions, video
+from app.data import management
+from app.routers import audio, dashboard, measurements, predictions, video, research
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # On startup: fill an empty database from the team's shared seed file.
-    added = seed.load_seed_if_empty()
+    # Bootstrap production data and import the packaged biology metrics idempotently.
+    added = management.initialize()
     if added:
-        logging.getLogger("uvicorn.error").info("Loaded shared seed data: %s", added)
+        logging.getLogger("uvicorn.error").info("Database initialization: %s", added)
     yield
 
 
@@ -33,6 +33,7 @@ app.include_router(audio.router)
 app.include_router(predictions.router)
 app.include_router(measurements.router)
 app.include_router(dashboard.router)
+app.include_router(research.router)
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 app.mount("/ui-assets", StaticFiles(directory=FRONTEND_DIR.parent / "data" / "ui"), name="ui-assets")
 

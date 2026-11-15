@@ -108,11 +108,13 @@ class DemoCrewRepository:
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 # Dashboard metric key (in data/rules.json) -> where it is stored in the
-# measurements table: (source, metric). Rule metrics with no entry here
+# measurements table: (optional source, metric). None selects any live source.
+# Research mission-phase values never substitute for current vitals.
+# Rule metrics with no entry here
 # (e.g. "oxygen": no model measures it yet) are left off the dashboard.
 DB_METRICS = {
-    "heart_rate": ("cardioresp", "hr_bpm"),
-    "respiratory_rate": ("cardioresp", "respi_rate"),
+    "heart_rate": (None, "hr_bpm"),
+    "respiratory_rate": (None, "respi_rate"),
 }
 
 # Same idea for model scores shown under "Model predictions": key in
@@ -163,7 +165,7 @@ class DatabaseCrewRepository:
                     continue
                 source, metric = DB_METRICS[key]
                 rows = db.list_measurements(astronaut_id=astronaut["id"], source=source,
-                                            metric=metric, limit=HISTORY_LENGTH)
+                                            metric=metric, context="live", limit=HISTORY_LENGTH)
                 if rows:
                     observed.append(datetime.fromisoformat(rows[-1]["measured_at"]))
                 metrics.append(Metric(key=key, **rule,
@@ -190,7 +192,7 @@ class DatabaseCrewRepository:
                 continue
             source, metric = DB_PREDICTIONS[key]
             rows = db.list_measurements(astronaut_id=astronaut_id, source=source,
-                                        metric=metric, limit=HISTORY_LENGTH)
+                                        metric=metric, context="live", limit=HISTORY_LENGTH)
             if not rows:
                 continue
             latest = rows[-1]

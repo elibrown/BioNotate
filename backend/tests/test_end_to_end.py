@@ -64,7 +64,8 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(set(crew), {"A-01", "A-02", "A-03", "A-04"})   # roster seeded
         self.assertEqual(crew["A-01"]["name"], "Reid Wiseman")
         self.assertTrue(all(m["status"] == "unknown" for m in crew.values()))
-        self.assertEqual(snapshot["alerts"], [])
+        self.assertEqual(len(snapshot["alerts"]), 8)
+        self.assertTrue(all(a["kind"] == "missing" for a in snapshot["alerts"]))
 
     def test_upload_shows_up_on_dashboard(self):
         self.upload("A-01", cardioresp_output(70, 72, 71))
@@ -81,8 +82,9 @@ class EndToEndTests(unittest.TestCase):
         self.upload("A-02", cardioresp_output(128, 131, 130))
         snapshot, crew = self.crew()
         self.assertEqual(crew["A-02"]["status"], "alert")
-        self.assertEqual([a["crew_id"] for a in snapshot["alerts"]], ["A-02"])
-        self.assertIn("Heart rate", snapshot["alerts"][0]["message"])
+        threshold_alerts = [a for a in snapshot["alerts"] if a["kind"] == "threshold_or_trend"]
+        self.assertEqual([a["crew_id"] for a in threshold_alerts], ["A-02"])
+        self.assertIn("Heart rate", threshold_alerts[0]["message"])
 
     def test_new_astronaut_id_appears_on_dashboard(self):
         self.upload("X-99", cardioresp_output(75, 76))

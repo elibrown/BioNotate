@@ -6,11 +6,13 @@ Health data routes, for the UI and for data that doesn't come from a model.
 """
 
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat
 
 from app import db
+from app.data import trends
 from app.manual_metrics import METRICS, METRIC_BY_KEY
 
 router = APIRouter(prefix="/api", tags=["measurements"])
@@ -30,6 +32,8 @@ def list_measurements(
     astronaut_id: str | None = None,
     source: str | None = None,
     metric: str | None = None,
+    context: Literal["live", "research"] | None = None,
+    dataset_id: str | None = None,
     prediction_id: int | None = None,
     since: datetime | None = None,
     until: datetime | None = None,
@@ -39,7 +43,7 @@ def list_measurements(
         astronaut_id=astronaut_id,
         source=source,
         metric=metric,
-        prediction_id=prediction_id,
+        prediction_id=prediction_id, context=context, dataset_id=dataset_id,
         since=db.to_iso(since) if since else None,
         until=db.to_iso(until) if until else None,
         limit=limit,
@@ -84,3 +88,12 @@ def add_manual_measurement(body: ManualMeasurement):
         astronaut_id=body.astronaut_id, metric=body.metric, value=body.value,
         unit=metric["unit"], measured_at=db.to_iso(body.measured_at), source="manual",
     )
+
+
+@router.get('/measurements/trends')
+def measurement_trends(astronaut_id: str, metric: str | None = None,
+                       source: str | None = None,
+                       context: Literal['live', 'research'] | None = None,
+                       dataset_id: str | None = None):
+    return {'astronaut_id': astronaut_id, 'series': trends.measurement_trends(
+        astronaut_id, metric=metric, source=source, context=context, dataset_id=dataset_id)}
