@@ -132,6 +132,16 @@ Tests: from `backend/`, run `python -m pytest -q`.
 If you ran an earlier version of this branch, delete `backend/astrohealth.db`
 once; it will be recreated with the current tables.
 
+**Shared data in git.** The `.db` file is not committed; the team shares its
+rows as text in `data/seed/astrohealth_seed.json` (one row per line, sorted by
+id). To share your data, run `python -m app.seed export` from `backend/` and
+commit that file. When the backend starts with a database that has no
+predictions or measurements, it loads the file automatically; a database that
+already has data is left alone. To switch to the shared data, stop the backend,
+delete `backend/astrohealth.db` and start it again. It is a snapshot, not a
+sync: if two people export different data, git shows a conflict, so export one
+at a time. Uploaded video/audio files are not included.
+
 The dashboard (`GET /api/dashboard`) reads this database through
 `DatabaseCrewRepository` in `backend/app/dashboard/repository.py`. `DB_METRICS`
 there maps each dashboard metric in `data/rules.json` to a stored

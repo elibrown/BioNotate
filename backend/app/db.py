@@ -164,6 +164,63 @@ def add_astronauts(astronauts: list[dict]) -> None:
     conn.close()
 
 
+# --------------------------------------------------------------------------
+# Shared seed data (data/seed/astrohealth_seed.json, committed to git)
+# --------------------------------------------------------------------------
+
+# Parents before children, so prediction_id in measurements always points
+# at a row that is already there.
+SEED_TABLES = ("astronauts", "predictions", "measurements")
+
+
+def dump_tables() -> dict[str, list[dict]]:
+    """Every row of every seed table, sorted by id (a stable order for git)."""
+    conn = _connect()
+    data = {
+        table: [dict(r) for r in conn.execute(f"SELECT * FROM {table} ORDER BY id")]
+        for table in SEED_TABLES
+    }
+    conn.close()
+    return data
+
+
+def has_data() -> bool:
+    """True if there is at least one prediction or measurement."""
+    conn = _connect()
+    row = conn.execute(
+        "SELECT 1 FROM predictions UNION ALL SELECT 1 FROM measurements LIMIT 1"
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def load_tables(data: dict[str, list[dict]]) -> dict[str, int]:
+    """
+    Insert rows from dump_tables() output, keeping their ids, all in one
+    transaction. Rows whose id already exists are skipped. Columns the
+    table doesn't have are ignored; missing ones get their default.
+    Returns how many rows were added per table.
+    """
+    conn = _connect()
+    added = {}
+    with conn:
+        for table in SEED_TABLES:
+            columns = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+            count = 0
+            for row in data.get(table, []):
+                row = {k: v for k, v in row.items() if k in columns}
+                cols = ", ".join(row)
+                marks = ", ".join("?" for _ in row)
+                cur = conn.execute(
+                    f"INSERT OR IGNORE INTO {table} ({cols}) VALUES ({marks})",
+                    list(row.values()),
+                )
+                count += cur.rowcount
+            added[table] = count
+    conn.close()
+    return added
+
+
 def roster_is_empty() -> bool:
     conn = _connect()
     row = conn.execute("SELECT 1 FROM astronauts LIMIT 1").fetchone()
