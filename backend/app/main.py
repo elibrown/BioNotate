@@ -60,3 +60,8 @@ def upload_page():
 @app.get("/measurements", include_in_schema=False)
 def measurements_page():
     return FileResponse(FRONTEND_DIR / "manual_metrics.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/audio", include_in_schema=False)
+def audio_page():
+    return FileResponse(FRONTEND_DIR / "audio.html", headers={"Cache-Control": "no-cache"})

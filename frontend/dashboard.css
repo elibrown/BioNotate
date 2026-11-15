@@ -151,3 +151,32 @@ body{padding-left:74px}
 .saved-reading small{grid-column:1/-1;color:#485d80}
 @media(max-width:900px){.profile-grid,.profile-data-grid{grid-template-columns:1fr}.trends-panel{grid-column:auto}.body-panel{min-height:380px}.profile-header>strong{font-size:32px}.trends-panel>.section-heading{align-items:start;flex-direction:column}}
 @media(max-width:550px){.bionotate #detail{padding:16px}.profile-panel{padding:16px}.body-panel{grid-template-columns:1fr;min-height:0}.body-placeholder{height:220px}.body-vitals{gap:12px;grid-template-columns:1fr 1fr;padding:0}.vital-callout{padding:12px}.vital-callout span{font-size:15px}.profile-facts{grid-template-columns:1fr 1fr}.vital-trend{grid-template-columns:1fr}.profile-header{gap:12px}.profile-header .timestamp{margin-left:0}.identity-panel>.section-heading{align-items:start;flex-wrap:wrap}}
+
+.audio-page .heading-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.audio-page progress{width:100%;height:12px;accent-color:#0472d3}
+.audio-page .audio-step,.audio-page .audio-review,.audio-page #audio-result{padding:18px;background:#eff6fe;border:1px solid #b5cff1;border-radius:16px}
+.audio-page .audio-recorder{display:grid;gap:14px}
+.audio-page #audio-timer{font-size:32px;font-weight:bold;color:#0472d3;margin:8px 0}
+.audio-page audio{width:100%;max-width:100%;color-scheme:light}
+.audio-page audio[hidden],.audio-page #audio-result[hidden]{display:none}
+.audio-page hr{border:0;border-top:1px solid #b5cff1;width:100%}
+.audio-page #audio-send{background:#0472d3;color:#fff;font-weight:bold}
+.audio-page #audio-status{color:#334e7c;overflow-wrap:anywhere}
+.audio-page .audio-review li{padding:8px 0;color:#334e7c}
+
+/* Keep recorder and step controls paired instead of inheriting crew-card widths. */
+.audio-page .heading-actions{display:flex;flex-wrap:nowrap;gap:12px}
+.bionotate .audio-page .heading-actions button{width:auto;flex:1;min-width:0;margin:0;font-size:17px;padding:12px}
+.bionotate .audio-page #audio-next{background:#0472d3;color:#fff}
+.audio-page #audio-retry{width:auto;justify-self:start;font-size:16px}
+.audio-page #audio-status{position:sticky;top:8px;z-index:2;background:#eff6fe;border:1px solid #b5cff1;border-radius:10px;padding:12px}
+@media(max-width:400px){.bionotate .audio-page .heading-actions button{font-size:14px;padding:10px 6px}}
+
+.audio-page #audio-astronaut{width:100%;margin:0;padding:12px;background:#fff;color:#070f4c;border:1px solid #a9c4e6;border-radius:10px}
+.audio-page #audio-roster-status{font-size:14px;color:#485d80}
+.audio-page #audio-roster-retry[hidden]{display:none}
+
+.bionotate .audio-page #audio-record{background:#168543;border-color:#168543;color:#fff}
+.bionotate .audio-page #audio-record:hover{background:#106b35}
+.bionotate .audio-page #audio-record.is-recording{background:#d4303b;border-color:#d4303b}
+.bionotate .audio-page #audio-record.is-recording:hover{background:#b7232d}

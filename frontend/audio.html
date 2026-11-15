@@ -1,0 +1,100 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AstroHealth · Audio</title><link rel="stylesheet" href="/static/dashboard.css?v=bionotate-7"><script src="/static/audio.js?v=record-toggle" defer></script></head><body class="bionotate input-page"><aside class="sidebar" aria-label="AstroHealth navigation">
+  <a class="rail-brand" href="/" aria-label="AstroHealth home" title="AstroHealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></a>
+  <nav class="rail-nav" aria-label="Main navigation"><a class="rail-link" href="/" aria-label="Crew dashboard" data-tooltip="Crew dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m1-15a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-2-4"/></svg></a><a class="rail-link" href="/measurements" aria-label="Manual measurements" data-tooltip="Manual measurements"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6m-3 6v8m-4-4h8"/></svg></a><a class="rail-link" href="/upload" aria-label="Upload video" data-tooltip="Upload video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3"/></svg></a><a class="rail-link" href="/audio" aria-label="Audio input" data-tooltip="Audio input" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/></svg></a></nav>
+  <a class="rail-link rail-alert" href="/#alerts-panel" aria-label="Health alerts" data-tooltip="Health alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></a>
+</aside><main class="upload-page audio-page">
+  <p class="eyebrow">CREW INPUT</p>
+  <h1>Voice Biomarker Assessment</h1>
+  <p class="muted">
+    Complete five short voice recordings in a quiet environment.
+    This assessment is for research purposes only.
+  </p>
+
+  <div class="card upload-card">
+
+    <label for="audio-astronaut">Astronaut</label>
+    <select id="audio-astronaut" required disabled>
+      <option value="">Loading astronauts…</option>
+    </select>
+    <p id="audio-roster-status" role="status"></p>
+    <button id="audio-roster-retry" type="button" hidden>Retry loading astronauts</button>
+
+    <hr>
+
+    <div class="heading-actions">
+      <h2 id="audio-progress">Step 1 of 5</h2>
+      <span id="audio-completed">0 of 5 completed</span>
+    </div>
+
+    <p id="audio-status" role="status" aria-live="polite">Choose an astronaut and record the first clip.</p>
+    <progress id="audio-progress-bar" value="0" max="5"></progress>
+
+    <section class="audio-step">
+      <h2 id="audio-task-title">Count from 1 to 20 normally</h2>
+
+      <p id="audio-task-detail" class="muted">
+        Count from 1 to 20 at a comfortable, natural pace.
+      </p>
+
+      <p id="audio-task-target">
+        Recommended duration: approximately 10 seconds
+      </p>
+
+      <div class="audio-recorder">
+        <p id="audio-timer" aria-live="off">00:00</p>
+
+        <div class="heading-actions">
+          <button id="audio-record" type="button">
+            Start recording
+          </button>
+
+
+        </div>
+
+        <p class="muted">Or upload an existing recording:</p>
+
+        <input
+          id="audio-file"
+          type="file"
+          accept=".wav,.webm,.ogg,.opus,audio/wav,audio/webm,audio/ogg"
+        >
+
+        <audio id="audio-preview" controls hidden></audio>
+
+        <button id="audio-retry" type="button" disabled>
+          Retry recording
+        </button>
+      </div>
+    </section>
+
+    <hr>
+
+    <div class="heading-actions">
+      <button id="audio-prev" type="button" disabled>
+        Previous step
+      </button>
+
+      <button id="audio-next" type="button" disabled>
+        Next step →
+      </button>
+    </div>
+
+    <section class="audio-review">
+      <h2>Recording checklist</h2>
+      <ol id="audio-review-list"></ol>
+    </section>
+
+    <p id="audio-submit-help" role="status"></p>
+    <button id="audio-send" type="button" disabled>
+      Submit all five recordings
+    </button>
+
+
+
+    <section id="audio-result" hidden>
+      <h2 id="audio-result-title">Assessment result</h2>
+      <p id="audio-result-message"></p>
+    </section>
+
+  </div>
+</main></body></html>
