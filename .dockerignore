@@ -24,3 +24,4 @@ data/*
 !data/ui
 !data/schema
 !data/biomarkers.json
+docs/*.mp4
